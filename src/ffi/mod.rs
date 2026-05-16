@@ -1,11 +1,15 @@
+pub mod au_audio_unit;
+pub mod au_graph;
 pub mod audio_component;
 pub mod audio_converter;
 pub mod audio_file;
+pub mod audio_file_component;
 pub mod audio_file_stream;
 pub mod audio_format;
 pub mod audio_queue;
 pub mod audio_services;
 pub mod audio_unit;
+pub mod avfaudio;
 pub mod caf_file;
 pub mod core;
 pub mod ext_audio_file;

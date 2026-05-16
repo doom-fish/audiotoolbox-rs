@@ -23,13 +23,17 @@
 #[cfg(not(target_os = "macos"))]
 compile_error!("audiotoolbox only supports macOS");
 
+mod au_audio_unit;
+mod au_graph;
 mod audio_component;
 mod audio_converter;
 mod audio_file;
+mod audio_file_component;
 mod audio_file_stream;
 mod audio_queue;
 mod audio_services;
 mod audio_unit;
+mod avfaudio;
 mod caf_file;
 mod debug;
 mod error;
@@ -44,16 +48,20 @@ mod types;
 pub mod raw_ffi;
 
 pub use apple_cf;
+pub use au_audio_unit::AUAudioUnit;
+pub use au_graph::AUGraph;
 pub use audio_component::{AudioComponent, AudioComponentInstance, AudioComponentIter};
 pub use audio_converter::{
     AudioConversionInput, AudioConversionOutput, AudioConverter, BorrowedAudioConverter,
 };
 pub use audio_file::{AudioFile, PacketData, PropertyInfo};
-pub use caf_file::CafFile;
+pub use audio_file_component::AudioFileComponent;
 pub use audio_file_stream::AudioFileStream;
 pub use audio_queue::{AudioQueue, AudioQueueBufferHandle};
 pub use audio_services::SystemSound;
 pub use audio_unit::AudioUnit;
+pub use avfaudio::{AVAudioEngine, AVAudioFormat, AVAudioNode};
+pub use caf_file::CafFile;
 pub use debug::{
     ca_show, ca_show_to_stderr, ca_show_to_stdout, flush_debug_output, AudioToolboxDebugObject,
 };

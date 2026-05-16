@@ -11,6 +11,7 @@ pub type AudioFormatFlags = u32;
 pub type AudioFormatPropertyId = u32;
 pub type AudioFileTypeId = u32;
 pub type AudioFilePropertyId = u32;
+pub type AudioFileComponentPropertyId = u32;
 pub type AudioFileFlags = u32;
 pub type AudioFilePermissions = i8;
 pub type ExtAudioFilePropertyId = u32;
@@ -24,12 +25,17 @@ pub type AudioUnitScope = u32;
 pub type AudioUnitElement = u32;
 pub type AudioUnitParameterId = u32;
 pub type AudioUnitParameterValue = f32;
+pub type AUAudioFrameCount = u32;
+pub type AUNode = i32;
 pub type AudioQueuePropertyId = u32;
 pub type AudioQueueParameterId = u32;
 pub type AudioQueueParameterValue = f32;
 pub type AudioFileStreamPropertyId = u32;
 pub type AudioFileStreamParseFlags = u32;
 pub type AudioFileStreamSeekFlags = u32;
+pub type AVAudioCommonFormat = u64;
+pub type AVAudioChannelCount = u32;
+pub type AVAudioNodeBus = u64;
 pub type MusicSequenceType = u32;
 pub type MusicSequenceFileTypeId = u32;
 pub type MusicSequenceFileFlags = u32;
@@ -147,6 +153,8 @@ pub const AUDIO_COMPONENT_TYPE_GENERATOR: u32 = fourcc(*b"augn");
 pub const AUDIO_COMPONENT_TYPE_OFFLINE_EFFECT: u32 = fourcc(*b"auol");
 pub const AUDIO_COMPONENT_TYPE_MIDI_PROCESSOR: u32 = fourcc(*b"aumi");
 pub const AUDIO_COMPONENT_MANUFACTURER_APPLE: u32 = fourcc(*b"appl");
+pub const AUDIO_COMPONENT_INSTANTIATION_LOAD_OUT_OF_PROCESS: AudioComponentInstantiationOptions = 1;
+pub const AUDIO_COMPONENT_INSTANTIATION_LOAD_IN_PROCESS: AudioComponentInstantiationOptions = 2;
 pub const AUDIO_UNIT_SUBTYPE_AU_CONVERTER: u32 = fourcc(*b"conv");
 pub const AUDIO_UNIT_SUBTYPE_GENERIC_OUTPUT: u32 = fourcc(*b"genr");
 pub const AUDIO_UNIT_SUBTYPE_DEFAULT_OUTPUT: u32 = fourcc(*b"def ");
@@ -207,6 +215,29 @@ pub const AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE: AudioFileStreamPropert
     fourcc(*b"psze");
 pub const AUDIO_FILE_STREAM_PROPERTY_DATA_OFFSET: AudioFileStreamPropertyId = fourcc(*b"doff");
 pub const AUDIO_FILE_STREAM_PROPERTY_BIT_RATE: AudioFileStreamPropertyId = fourcc(*b"brat");
+
+pub const AUDIO_FILE_COMPONENT_CAN_READ: AudioFileComponentPropertyId = fourcc(*b"cnrd");
+pub const AUDIO_FILE_COMPONENT_CAN_WRITE: AudioFileComponentPropertyId = fourcc(*b"cnwr");
+pub const AUDIO_FILE_COMPONENT_FILE_TYPE_NAME: AudioFileComponentPropertyId = fourcc(*b"ftnm");
+pub const AUDIO_FILE_COMPONENT_UTIS_FOR_TYPE: AudioFileComponentPropertyId = fourcc(*b"futi");
+pub const AUDIO_FILE_COMPONENT_MIME_TYPES_FOR_TYPE: AudioFileComponentPropertyId =
+    fourcc(*b"fmim");
+pub const AUDIO_FILE_COMPONENT_EXTENSIONS_FOR_TYPE: AudioFileComponentPropertyId =
+    fourcc(*b"fext");
+pub const AUDIO_FILE_COMPONENT_AVAILABLE_FORMAT_IDS: AudioFileComponentPropertyId =
+    fourcc(*b"fmid");
+pub const AUDIO_FILE_COMPONENT_AVAILABLE_STREAM_DESCRIPTIONS_FOR_FORMAT:
+    AudioFileComponentPropertyId = fourcc(*b"sdid");
+pub const AUDIO_FILE_COMPONENT_FAST_DISPATCH_TABLE: AudioFileComponentPropertyId =
+    fourcc(*b"fdft");
+pub const AUDIO_FILE_COMPONENT_HFS_TYPE_CODES_FOR_TYPE: AudioFileComponentPropertyId =
+    fourcc(*b"fhfs");
+
+pub const AV_AUDIO_OTHER_FORMAT: AVAudioCommonFormat = 0;
+pub const AV_AUDIO_PCM_FORMAT_FLOAT32: AVAudioCommonFormat = 1;
+pub const AV_AUDIO_PCM_FORMAT_FLOAT64: AVAudioCommonFormat = 2;
+pub const AV_AUDIO_PCM_FORMAT_INT16: AVAudioCommonFormat = 3;
+pub const AV_AUDIO_PCM_FORMAT_INT32: AVAudioCommonFormat = 4;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -32,3 +32,12 @@ pub fn string_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> Result<St
         .map_err(|_| AudioToolboxError::message(operation, "framework returned non-UTF-8 bytes"))
 }
 
+pub fn error_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> AudioToolboxError {
+    if ptr.is_null() {
+        AudioToolboxError::message(operation, "framework returned an unknown error")
+    } else {
+        string_from_owned_ptr(operation, ptr)
+            .map_or_else(|error| error, |message| AudioToolboxError::message(operation, message))
+    }
+}
+

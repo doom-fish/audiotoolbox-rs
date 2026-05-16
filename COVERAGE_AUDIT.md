@@ -3,10 +3,10 @@
 Sampled the top 300 unique public symbols across `AudioToolbox.framework`, `AudioUnit.framework`, and `AVFAudio.framework`, ranked by cross-header occurrence count after deduplicating duplicate declarations by symbol name and filtering macOS-unavailable declarations.
 
 SDK_PUBLIC_SYMBOLS: 300
-VERIFIED: 43
-GAPS: 255
+VERIFIED: 55
+GAPS: 243
 EXEMPT: 2
-COVERAGE_PCT: 14.4%
+COVERAGE_PCT: 18.3%
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
@@ -54,22 +54,27 @@ COVERAGE_PCT: 14.4%
 | `AudioFilePermissions` | type | `AudioFile.h` | AudioFile::open_with_permissions, AudioFilePermissions, raw_ffi::AudioFilePermissions |
 | `MusicSequenceFileFlags` | type | `MusicPlayer.h` | MusicSequenceFileFlags |
 | `MusicSequenceType` | type | `MusicPlayer.h` | MusicSequenceType |
+| `AVAudioNode` | interface | `AVAudioNode.h` | AVAudioEngine::output_node, AVAudioNode::input_format |
+| `AUGraph` | type | `AUGraph.h` | AUGraph::new, AUGraph::add_node |
+| `AVAudioFormat` | interface | `AVAudioFormat.h` | AVAudioFormat::standard, AVAudioFormat::with_common_format |
+| `AudioFileComponent` | type | `AudioFileComponent.h` | AudioFileComponent::new, AudioFileComponent::open |
+| `AUAudioUnit` | interface | `AUAudioUnitImplementation.h` | AUAudioUnit::new_in_process, AUAudioUnit::input_bus_count |
+| `AUNode` | type | `AUGraph.h` | AUGraph::add_node, AUGraph::node_description |
+| `AVAudioNodeBus` | type | `AVAudioTypes.h` | AVAudioNode::input_format, AVAudioNode::output_format |
+| `AudioFileComponentPropertyID` | type | `AudioFileComponent.h` | AUDIO_FILE_COMPONENT_CAN_READ, AudioFileComponent::can_read |
+| `AUAudioFrameCount` | type | `AUAudioUnit.h` | AUAudioUnit::maximum_frames_to_render, AUAudioUnit::set_maximum_frames_to_render |
+| `AVAudioEngine` | interface | `AVAudioEngine.h` | AVAudioEngine::new, AVAudioEngine::output_node |
+| `AVAudioCommonFormat` | type | `AVAudioFormat.h` | AVAudioFormat::with_common_format, AVAudioFormat::common_format |
+| `AVAudioChannelCount` | type | `AVAudioTypes.h` | AVAudioFormat::standard, AVAudioFormat::channel_count |
 
 ## 🔴 GAPS
 | Symbol | Kind | Header | Notes |
 | --- | --- | --- | --- |
-| `AVAudioNode` | interface | `AVAudioNode.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
-| `AUGraph` | type | `AUGraph.h` | Legacy AUGraph graph-management APIs are not wrapped. |
-| `AVAudioFormat` | interface | `AVAudioFormat.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
-| `AudioFileComponent` | type | `AudioFileComponent.h` | AudioFile component plug-in interfaces are not wrapped. |
-| `AUAudioUnit` | interface | `AUAudioUnitImplementation.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
-| `AUNode` | type | `AUGraph.h` | Legacy AUGraph graph-management APIs are not wrapped. |
 | `CAClockRef` | type | `CoreAudioClock.h` | CoreAudio clock APIs are not wrapped. |
 | `AVAudioSequencerInfoDictionaryKey` | type | `AVAudioSequencer.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVAudioTime` | interface | `AVAudioTime.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVMusicTimeStamp` | type | `AVAudioTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AUValue` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
-| `AVAudioNodeBus` | type | `AVAudioTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVAudioMixing` | protocol | `AVAudioMixing.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AudioCodec` | type | `AudioCodec.h` | Codec plug-in APIs are not wrapped. |
 | `AudioUnitParameter` | struct | `AUComponent.h` | Advanced AudioUnit property/callback/render surfaces are not wrapped. |
@@ -84,7 +89,6 @@ COVERAGE_PCT: 14.4%
 | `AudioFileMarker` | struct | `AudioFile.h` | Marker/region metadata and callback-style file APIs are not wrapped. |
 | `AUEventSampleTime` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AVAudioFramePosition` | type | `AVAudioTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
-| `AudioFileComponentPropertyID` | type | `AudioFileComponent.h` | AudioFile component plug-in interfaces are not wrapped. |
 | `AUParameter` | interface | `AUParameters.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AVAudioBuffer` | interface | `AVAudioBuffer.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVAudioUnitEffect` | interface | `AVAudioUnitEffect.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
@@ -94,7 +98,6 @@ COVERAGE_PCT: 14.4%
 | `AUParameterAddress` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AUParameterNode` | interface | `AUParameters.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AudioFileMarkerList` | struct | `AudioFile.h` | Marker/region metadata and callback-style file APIs are not wrapped. |
-| `AUAudioFrameCount` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AUParameterListenerRef` | type | `AudioUnitUtilities.h` | Advanced AudioUnit property/callback/render surfaces are not wrapped. |
 | `AVAudioSessionPolarPattern` | type | `AVAudioSessionRoute.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AudioUnitParameterOptions` | type | `AudioUnitProperties.h` | Advanced AudioUnit property/callback/render surfaces are not wrapped. |
@@ -117,11 +120,9 @@ COVERAGE_PCT: 14.4%
 | `AudioFile_SetSizeProc` | callback | `AudioFile.h` | Marker/region metadata and callback-style file APIs are not wrapped. |
 | `AudioFile_WriteProc` | callback | `AudioFile.h` | Marker/region metadata and callback-style file APIs are not wrapped. |
 | `AUAudioUnitBus` | interface | `AUAudioUnitImplementation.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
-| `AVAudioEngine` | interface | `AVAudioEngine.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVAudioUnitComponent` | interface | `AVAudioUnitComponent.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `MIDIEventList` | struct | `MusicDevice.h` | Sequence editing, event iteration, or music-device surfaces remain unwrapped. |
 | `AVAudio3DVector` | type | `AVAudioTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
-| `AVAudioCommonFormat` | type | `AVAudioFormat.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `MIDIEndpointRef` | type | `MusicPlayer.h` | Sequence editing, event iteration, or music-device surfaces remain unwrapped. |
 | `MusicDeviceGroupID` | type | `MusicDevice.h` | Sequence editing, event iteration, or music-device surfaces remain unwrapped. |
 | `AudioUnitPropertyListenerProc` | callback | `AUComponent.h` | Advanced AudioUnit property/callback/render surfaces are not wrapped. |
@@ -152,7 +153,6 @@ COVERAGE_PCT: 14.4%
 | `AudioUnitParameterEvent` | struct | `AUComponent.h` | Advanced AudioUnit property/callback/render surfaces are not wrapped. |
 | `AUAudioUnitBusType` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
 | `AURenderEventType` | type | `AUAudioUnitImplementation.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |
-| `AVAudioChannelCount` | type | `AVAudioTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `AVAudioSessionCategoryOptions` | type | `AVAudioSessionTypes.h` | No AVFAudio Objective-C wrapper surface is currently exposed. |
 | `CAClockTimeFormat` | type | `CoreAudioClock.h` | CoreAudio clock APIs are not wrapped. |
 | `MIDIChannelNumber` | type | `AUAudioUnit.h` | No AUAudioUnit / parameter-tree surface is currently wrapped. |

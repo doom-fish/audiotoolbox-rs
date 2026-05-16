@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1] - 2026-05-16
+
+### Added
+
+- Added bridge-backed wrappers for `AVAudioEngine`, `AVAudioNode`, and `AVAudioFormat` from `AVFAudio.framework`.
+- Added a bridge-backed `AUAudioUnit` wrapper covering component metadata, bus counts, and frame-budget configuration.
+- Added safe wrappers for legacy-but-macOS-available `AUGraph` graph management APIs and `AudioFileComponent` plug-in accessors.
+- Added four new numbered examples and four integration smoke tests covering the new surface area.
+
+### Changed
+
+- Bumped the crate to `0.2.1`.
+- Refreshed the coverage audit and README to reflect the newly wrapped APIs.
+
 ## [0.2.0] - 2026-05-16
 
 ### Added

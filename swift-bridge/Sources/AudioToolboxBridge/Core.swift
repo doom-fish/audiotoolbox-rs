@@ -29,6 +29,20 @@ func cStringCopy(_ string: String) -> UnsafeMutablePointer<CChar>? {
     strdup(string)
 }
 
+func copyOptionalString(_ string: String?) -> UnsafeMutablePointer<CChar>? {
+    guard let string else {
+        return nil
+    }
+    return cStringCopy(string)
+}
+
+func copyErrorDescription(_ error: Error?) -> UnsafeMutablePointer<CChar>? {
+    guard let error else {
+        return nil
+    }
+    return cStringCopy((error as NSError).localizedDescription)
+}
+
 func castOpaque<T>(_ raw: UnsafeMutableRawPointer?, to _: T.Type = T.self) -> T {
     unsafeBitCast(raw, to: T.self)
 }
