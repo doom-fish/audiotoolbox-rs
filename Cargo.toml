@@ -1,11 +1,11 @@
 [package]
 name = "audiotoolbox"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/audiotoolbox-rs"
 repository = "https://github.com/doom-fish/audiotoolbox-rs"
-description = "Safe Rust bindings for Apple's AudioToolbox framework — audio files, conversion, components, and system sounds on macOS"
+description = "Safe Rust bindings for Apple's AudioToolbox framework via a Swift bridge on macOS"
 authors = ["Per Johansson <per@doom.fish>"]
 keywords = ["audiotoolbox", "audio", "macos", "coreaudio", "apple"]
 categories = ["multimedia::audio", "api-bindings", "os::macos-apis"]
@@ -14,12 +14,15 @@ readme = "README.md"
 build = "build.rs"
 include = [
     "src/**/*",
+    "swift-bridge/**/*",
     "examples/**/*",
+    "tests/**/*",
     "build.rs",
     "Cargo.toml",
     "README.md",
-    "LICENSE-*",
     "CHANGELOG.md",
+    "COVERAGE.md",
+    "LICENSE-*",
 ]
 
 [lints.rust]
@@ -36,6 +39,7 @@ crate-type = ["lib"]
 [features]
 default = []
 cargo-clippy = []
+raw-ffi = []
 
 [dependencies]
 apple-cf = { version = ">=0.2, <0.6", default-features = false }
@@ -49,9 +53,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [badges]
 maintenance = { status = "actively-developed" }
-
-[[example]]
-name = "01_read_glass"
 
 [profile.release]
 debug = "full"

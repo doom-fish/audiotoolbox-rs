@@ -1,6 +1,15 @@
 use crate::{
-    audio_converter::BorrowedAudioConverter, cf, ffi, AudioStreamBasicDescription,
-    AudioToolboxError, Result,
+    ffi,
+    internal::{path_to_cstring, status_to_result},
+    AudioStreamBasicDescription,
+    AudioToolboxError,
+    BorrowedAudioConverter,
+    ExtAudioFileRef,
+    Result,
+    AUDIO_FILE_FLAGS_ERASE_FILE,
+    EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
+    EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT,
+    EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
 };
 use std::{mem::MaybeUninit, path::Path};
 
@@ -9,7 +18,7 @@ pub struct InterleavedAudioBuffer {
     channels: u32,
     bytes_per_frame: u32,
     storage: Vec<u8>,
-    raw: ffi::AudioBufferList1,
+    raw: crate::AudioBufferList1,
 }
 
 impl InterleavedAudioBuffer {
@@ -23,9 +32,9 @@ impl InterleavedAudioBuffer {
                 )
             })?;
         let mut storage = vec![0_u8; byte_capacity];
-        let raw = ffi::AudioBufferList {
+        let raw = crate::AudioBufferList {
             mNumberBuffers: 1,
-            mBuffers: [ffi::AudioBuffer {
+            mBuffers: [crate::AudioBuffer {
                 mNumberChannels: channels,
                 mDataByteSize: u32::try_from(byte_capacity).map_err(|_| {
                     AudioToolboxError::message(
@@ -77,85 +86,103 @@ impl InterleavedAudioBuffer {
         self.raw.mBuffers[0].mDataByteSize = byte_size.min(self.storage.len() as u32);
     }
 
-    fn raw_mut_ptr(&mut self) -> *mut ffi::AudioBufferList1 {
+    fn raw_mut_ptr(&mut self) -> *mut crate::AudioBufferList1 {
         self.raw.mBuffers[0].mData = self.storage.as_mut_ptr().cast();
         self.raw.mBuffers[0].mDataByteSize = self.storage.len() as u32;
         &mut self.raw
     }
 
-    fn raw_ptr(&self) -> *const ffi::AudioBufferList1 {
+    fn raw_ptr(&self) -> *const crate::AudioBufferList1 {
         &self.raw
     }
 }
 
 #[derive(Debug)]
 pub struct ExtAudioFile {
-    raw: ffi::ExtAudioFileRef,
+    handle: *mut std::ffi::c_void,
+    raw: ExtAudioFileRef,
 }
 
 impl ExtAudioFile {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let url = cf::path_to_url(path.as_ref())?;
-        let mut ext_audio_file = MaybeUninit::uninit();
-        let status = unsafe { ffi::ExtAudioFileOpenURL(url.as_ptr(), ext_audio_file.as_mut_ptr()) };
+        let path = path_to_cstring(path.as_ref())?;
+        let mut handle = std::ptr::null_mut();
+        let status = unsafe { ffi::ext_audio_file::at_ext_audio_file_open(path.as_ptr(), &mut handle) };
         status_to_result("ExtAudioFileOpenURL", status)?;
-        Ok(Self {
-            raw: unsafe { ext_audio_file.assume_init() },
-        })
+        let raw: ExtAudioFileRef =
+            unsafe { ffi::ext_audio_file::at_ext_audio_file_raw(handle) }.cast();
+        if raw.is_null() {
+            return Err(AudioToolboxError::message(
+                "ExtAudioFileOpenURL",
+                "framework returned a null ExtAudioFileRef",
+            ));
+        }
+        Ok(Self { handle, raw })
     }
 
     pub fn create(
         path: impl AsRef<Path>,
-        file_type: ffi::AudioFileTypeId,
+        file_type: crate::AudioFileTypeId,
         format: &AudioStreamBasicDescription,
-        flags: ffi::AudioFileFlags,
+        flags: u32,
     ) -> Result<Self> {
-        let url = cf::path_to_url(path.as_ref())?;
-        let mut ext_audio_file = MaybeUninit::uninit();
+        let path = path_to_cstring(path.as_ref())?;
+        let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::ExtAudioFileCreateWithURL(
-                url.as_ptr(),
+            ffi::ext_audio_file::at_ext_audio_file_create(
+                path.as_ptr(),
                 file_type,
                 format,
-                std::ptr::null(),
                 flags,
-                ext_audio_file.as_mut_ptr(),
+                &mut handle,
             )
         };
         status_to_result("ExtAudioFileCreateWithURL", status)?;
-        Ok(Self {
-            raw: unsafe { ext_audio_file.assume_init() },
-        })
+        let raw: ExtAudioFileRef =
+            unsafe { ffi::ext_audio_file::at_ext_audio_file_raw(handle) }.cast();
+        if raw.is_null() {
+            return Err(AudioToolboxError::message(
+                "ExtAudioFileCreateWithURL",
+                "framework returned a null ExtAudioFileRef",
+            ));
+        }
+        Ok(Self { handle, raw })
     }
 
-    pub fn as_raw(&self) -> ffi::ExtAudioFileRef {
+    pub fn create_erasing(
+        path: impl AsRef<Path>,
+        file_type: crate::AudioFileTypeId,
+        format: &AudioStreamBasicDescription,
+    ) -> Result<Self> {
+        Self::create(path, file_type, format, AUDIO_FILE_FLAGS_ERASE_FILE)
+    }
+
+    pub fn as_raw(&self) -> ExtAudioFileRef {
         self.raw
     }
 
     pub fn close(mut self) -> Result<()> {
-        let raw = self.raw;
-        self.raw = std::ptr::null_mut();
-        let status = unsafe { ffi::ExtAudioFileDispose(raw) };
-        status_to_result("ExtAudioFileDispose", status)
+        self.release();
+        Ok(())
     }
 
     pub fn file_data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
-            ffi::EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT,
+            EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT,
             "ExtAudioFileGetProperty(file data format)",
         )
     }
 
     pub fn client_data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
-            ffi::EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
+            EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
             "ExtAudioFileGetProperty(client data format)",
         )
     }
 
     pub fn set_client_data_format(&self, format: &AudioStreamBasicDescription) -> Result<()> {
         self.set_property_typed(
-            ffi::EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
+            EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
             format,
             "ExtAudioFileSetProperty(client data format)",
         )
@@ -163,25 +190,25 @@ impl ExtAudioFile {
 
     pub fn file_length_frames(&self) -> Result<i64> {
         self.get_property_typed(
-            ffi::EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
+            EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
             "ExtAudioFileGetProperty(file length frames)",
         )
     }
 
     pub fn audio_converter(&self) -> Result<BorrowedAudioConverter<'_>> {
-        let mut raw = MaybeUninit::<ffi::AudioConverterRef>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<ffi::AudioConverterRef>())
-            .expect("pointer size fits in u32");
+        let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::ExtAudioFileGetProperty(
-                self.raw,
-                ffi::EXT_AUDIO_FILE_PROPERTY_AUDIO_CONVERTER,
-                &mut size,
-                raw.as_mut_ptr().cast(),
-            )
+            ffi::ext_audio_file::at_ext_audio_file_copy_audio_converter(self.raw.cast(), &mut handle)
         };
-        status_to_result("ExtAudioFileGetProperty(audio converter)", status)?;
-        Ok(BorrowedAudioConverter::new(unsafe { raw.assume_init() }))
+        status_to_result(
+            "ExtAudioFileGetProperty(audio converter)",
+            status,
+        )?;
+        let raw = ffi::ext_audio_file::cast_audio_converter_ref(unsafe {
+            ffi::ext_audio_file::at_borrowed_audio_converter_raw(handle)
+        });
+        unsafe { ffi::ext_audio_file::at_borrowed_audio_converter_release(handle) };
+        Ok(BorrowedAudioConverter::new(raw))
     }
 
     pub fn read_interleaved(
@@ -191,26 +218,30 @@ impl ExtAudioFile {
     ) -> Result<u32> {
         let mut io_number_frames = frames.min(buffer.frame_capacity());
         let raw = buffer.raw_mut_ptr();
-        let status = unsafe { ffi::ExtAudioFileRead(self.raw, &mut io_number_frames, raw) };
+        let status = unsafe {
+            ffi::ext_audio_file::at_ext_audio_file_read(self.raw.cast(), &mut io_number_frames, raw)
+        };
         status_to_result("ExtAudioFileRead", status)?;
         Ok(io_number_frames)
     }
 
     pub fn write_interleaved(&self, frames: u32, buffer: &InterleavedAudioBuffer) -> Result<()> {
-        let status = unsafe { ffi::ExtAudioFileWrite(self.raw, frames, buffer.raw_ptr()) };
+        let status = unsafe {
+            ffi::ext_audio_file::at_ext_audio_file_write(self.raw.cast(), frames, buffer.raw_ptr())
+        };
         status_to_result("ExtAudioFileWrite", status)
     }
 
     fn get_property_typed<T: Copy>(
         &self,
-        property_id: ffi::ExtAudioFilePropertyId,
+        property_id: crate::ExtAudioFilePropertyId,
         operation: &'static str,
     ) -> Result<T> {
         let mut value = MaybeUninit::<T>::uninit();
         let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
         let status = unsafe {
-            ffi::ExtAudioFileGetProperty(
-                self.raw,
+            ffi::ext_audio_file::at_ext_audio_file_get_property(
+                self.raw.cast(),
                 property_id,
                 &mut size,
                 value.as_mut_ptr().cast(),
@@ -222,14 +253,14 @@ impl ExtAudioFile {
 
     fn set_property_typed<T: Copy>(
         &self,
-        property_id: ffi::ExtAudioFilePropertyId,
+        property_id: crate::ExtAudioFilePropertyId,
         value: &T,
         operation: &'static str,
     ) -> Result<()> {
         let size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
         let status = unsafe {
-            ffi::ExtAudioFileSetProperty(
-                self.raw,
+            ffi::ext_audio_file::at_ext_audio_file_set_property(
+                self.raw.cast(),
                 property_id,
                 size,
                 std::ptr::from_ref(value).cast(),
@@ -237,20 +268,18 @@ impl ExtAudioFile {
         };
         status_to_result(operation, status)
     }
-}
 
-impl Drop for ExtAudioFile {
-    fn drop(&mut self) {
-        if !self.raw.is_null() {
-            let _ = unsafe { ffi::ExtAudioFileDispose(self.raw) };
+    fn release(&mut self) {
+        if !self.handle.is_null() {
+            unsafe { ffi::ext_audio_file::at_ext_audio_file_release(self.handle) };
+            self.handle = std::ptr::null_mut();
+            self.raw = std::ptr::null_mut();
         }
     }
 }
 
-fn status_to_result(operation: &'static str, status: ffi::OSStatus) -> Result<()> {
-    if status == ffi::NO_ERR {
-        Ok(())
-    } else {
-        Err(AudioToolboxError::from_status(operation, status))
+impl Drop for ExtAudioFile {
+    fn drop(&mut self) {
+        self.release();
     }
 }

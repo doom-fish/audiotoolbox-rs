@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0] - 2026-05-16
+
+### Added
+
+- Migrated the crate to a ScreenCaptureKit-style Swift bridge architecture.
+- Preserved the legacy raw C bindings behind the `raw-ffi` Cargo feature.
+- Added safe Rust wrappers and Swift bridge files for `AudioFormat`, `AudioUnit`, `AudioQueue`, `MusicSequence` / `MusicPlayer`, `AudioFileStream`, and `CAFFile`.
+- Added 11 numbered examples and 11 integration smoke tests spanning every logical area.
+- Added `COVERAGE.md` with a header-by-header API audit.
+
+### Changed
+
+- Bumped the crate to `0.2.0`.
+- Updated the build to compile and link the Swift bridge automatically.
+- Refreshed the README to document the new bridge-backed surface area.
+
 ## [0.1.0] - 2026-05-16
 
 ### Added

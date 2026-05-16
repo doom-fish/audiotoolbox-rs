@@ -1,26 +1,37 @@
 # audiotoolbox-rs
 
-Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS.
+Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS via a Swift bridge.
 
-`audiotoolbox-rs` wraps the practical low-level pieces you reach for first:
+## Covered areas
 
-- `AudioFile` for packet-oriented file I/O and property queries
-- `ExtAudioFile` for client-format conversion during reads and writes
-- `AudioConverter` for one-shot `AudioConverterFillComplexBuffer` pipelines
-- `AudioComponent` discovery / instantiation helpers
-- `SystemSound` playback and `CAShow*` debug helpers
+`audiotoolbox-rs` 0.2.0 now ships bridge-backed wrappers for:
 
-## Status
+- `AudioFormat`
+- `AudioFile`
+- `ExtAudioFile`
+- `AudioConverter`
+- `AudioComponent`
+- `AudioUnit`
+- `AudioQueue`
+- `MusicSequence` / `MusicPlayer`
+- `AudioServices`
+- `AudioFileStream`
+- `CAFFile`
 
-Initial `0.1.0` coverage targets pure-C AudioToolbox APIs only. The crate is aimed
-at audio-file inspection, simple PCM conversion pipelines, component discovery,
-and lightweight system-sound playback.
+The original raw C surface is still available behind the `raw-ffi` Cargo feature.
 
 ## Installation
 
 ```toml
 [dependencies]
-audiotoolbox = "0.1"
+audiotoolbox = "0.2"
+```
+
+To reach the legacy raw C bindings as well:
+
+```toml
+[dependencies]
+audiotoolbox = { version = "0.2", features = ["raw-ffi"] }
 ```
 
 ## Quick start
@@ -46,34 +57,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Highlights
 
-- Pure Rust + C FFI (no Swift bridge required)
-- Safe wrappers for the requested AudioToolbox entry points
-- Convenience constructors for common linear PCM `AudioStreamBasicDescription`s
-- `examples/01_read_glass.rs` smoke test for `/System/Library/Sounds/Glass.aiff`
+- ScreenCaptureKit-style Swift bridge with one bridge file per logical area
+- Owned Rust handles with `Drop`
+- `AudioFile`, `ExtAudioFile`, and `AudioFileStream` smoke-tested against `Glass.aiff`
+- In-memory `AudioConverter` one-shot conversion helper
+- `AudioUnit`, `AudioQueue`, and `MusicSequence` / `MusicPlayer` creation helpers
+- Pure-Rust `CAFFile` header parsing helpers
+- 11 numbered examples and 11 integration smoke tests
 
-## API notes
-
-- `AudioFile::read_packet_data` and `AudioFile::read_packets` return `PacketData`
-  with both byte payloads and packet descriptions.
-- `ExtAudioFile::set_client_data_format` + `InterleavedAudioBuffer` cover the
-  common “decode into interleaved PCM” path.
-- `AudioConverter::fill_complex_buffer_once` is designed for one-shot in-memory
-  conversions; larger streaming scenarios can call into the lower-level APIs in
-  repeated chunks.
-- `ca_show_to_stdout`, `ca_show_to_stderr`, and `flush_debug_output` provide the
-  requested `CAShowFile`-style debugging workflow.
-
-## Smoke example
+## Examples
 
 ```bash
-cargo run --example 01_read_glass
+for ex in examples/*.rs; do cargo run --example "$(basename "$ex" .rs)"; done
 ```
 
-Expected tail output:
+Highlights:
 
-```text
-✅ audiotoolbox read OK
+- `01_read_glass`
+- `04_ext_audio_file_decode`
+- `07_audio_unit_converter`
+- `08_audio_queue_output`
+- `10_audio_file_stream`
+- `11_caf_header`
+
+## Validation
+
+Verified with:
+
+```bash
+cargo clippy --all-targets -- -D warnings
+cargo test
+for ex in examples/*.rs; do cargo run --example "$(basename "$ex" .rs)"; done
+cargo check --features raw-ffi
 ```
+
+## Coverage audit
+
+See [`COVERAGE.md`](COVERAGE.md) for the header-by-header audit of implemented, partial, and skipped APIs.
 
 ## License
 

@@ -1,4 +1,4 @@
-use crate::ffi::OSStatus;
+use crate::OSStatus;
 use std::{borrow::Cow, error::Error, fmt};
 
 pub type Result<T> = std::result::Result<T, AudioToolboxError>;

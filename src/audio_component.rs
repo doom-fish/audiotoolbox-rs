@@ -1,17 +1,13 @@
-use crate::{cf, ffi, AudioComponentDescription, AudioToolboxError, Result};
+use crate::{
+    ffi,
+    internal::{status_to_result, string_from_owned_ptr},
+    AudioComponentDescription,
+    AudioComponentInstanceRef,
+    AudioComponentRef,
+    AudioToolboxError,
+    Result,
+};
 use std::{mem::MaybeUninit, ptr::NonNull};
-
-pub const AUDIO_COMPONENT_TYPE_OUTPUT: u32 = ffi::fourcc(*b"auou");
-pub const AUDIO_COMPONENT_TYPE_MUSIC_DEVICE: u32 = ffi::fourcc(*b"aumu");
-pub const AUDIO_COMPONENT_TYPE_MUSIC_EFFECT: u32 = ffi::fourcc(*b"aumf");
-pub const AUDIO_COMPONENT_TYPE_FORMAT_CONVERTER: u32 = ffi::fourcc(*b"aufc");
-pub const AUDIO_COMPONENT_TYPE_EFFECT: u32 = ffi::fourcc(*b"aufx");
-pub const AUDIO_COMPONENT_TYPE_MIXER: u32 = ffi::fourcc(*b"aumx");
-pub const AUDIO_COMPONENT_TYPE_PANNER: u32 = ffi::fourcc(*b"aupn");
-pub const AUDIO_COMPONENT_TYPE_GENERATOR: u32 = ffi::fourcc(*b"augn");
-pub const AUDIO_COMPONENT_TYPE_OFFLINE_EFFECT: u32 = ffi::fourcc(*b"auol");
-pub const AUDIO_COMPONENT_TYPE_MIDI_PROCESSOR: u32 = ffi::fourcc(*b"aumi");
-pub const AUDIO_COMPONENT_MANUFACTURER_APPLE: u32 = ffi::fourcc(*b"appl");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AudioComponent(NonNull<std::ffi::c_void>);
@@ -24,22 +20,26 @@ pub struct AudioComponentIter {
 
 #[derive(Debug)]
 pub struct AudioComponentInstance {
-    raw: ffi::AudioComponentInstanceRef,
+    handle: *mut std::ffi::c_void,
+    raw: AudioComponentInstanceRef,
 }
 
 impl AudioComponent {
     pub fn count(description: AudioComponentDescription) -> u32 {
-        unsafe { ffi::AudioComponentCount(std::ptr::from_ref(&description)) }
+        unsafe { ffi::audio_component::at_audio_component_count(std::ptr::from_ref(&description)) }
     }
 
-    pub fn find_next(
-        previous: Option<Self>,
-        description: AudioComponentDescription,
-    ) -> Option<Self> {
+    pub fn find_next(previous: Option<Self>, description: AudioComponentDescription) -> Option<Self> {
         let previous_raw = previous.map_or(std::ptr::null_mut(), |component| component.as_raw());
-        let raw =
-            unsafe { ffi::AudioComponentFindNext(previous_raw, std::ptr::from_ref(&description)) };
-        NonNull::new(raw).map(Self)
+        let handle = unsafe {
+            ffi::audio_component::at_audio_component_find_next(
+                previous_raw.cast(),
+                std::ptr::from_ref(&description),
+            )
+        };
+        let raw = NonNull::new(unsafe { ffi::audio_component::at_audio_component_raw(handle) })?;
+        unsafe { ffi::audio_component::at_audio_component_release(handle) };
+        Some(Self(raw))
     }
 
     pub fn iter(description: AudioComponentDescription) -> AudioComponentIter {
@@ -49,48 +49,55 @@ impl AudioComponent {
         }
     }
 
-    pub fn as_raw(&self) -> ffi::AudioComponentRef {
+    pub fn as_raw(&self) -> AudioComponentRef {
         self.0.as_ptr()
     }
 
     pub fn copy_name(&self) -> Result<String> {
-        let mut cf_name = MaybeUninit::uninit();
-        let status = unsafe { ffi::AudioComponentCopyName(self.as_raw(), cf_name.as_mut_ptr()) };
+        let mut status = 0;
+        let ptr = unsafe {
+            ffi::audio_component::at_audio_component_copy_name(self.as_raw().cast(), &mut status)
+        };
         status_to_result("AudioComponentCopyName", status)?;
-        let cf_name = unsafe { cf_name.assume_init() };
-        let owned =
-            unsafe { cf::OwnedCFType::from_create_rule(cf_name.cast()) }.ok_or_else(|| {
-                AudioToolboxError::message(
-                    "AudioComponentCopyName",
-                    "framework returned a null name",
-                )
-            })?;
-        cf::cfstring_to_string(owned.as_ptr())
+        string_from_owned_ptr("AudioComponentCopyName", ptr)
     }
 
     pub fn description(&self) -> Result<AudioComponentDescription> {
         let mut description = MaybeUninit::uninit();
-        let status =
-            unsafe { ffi::AudioComponentGetDescription(self.as_raw(), description.as_mut_ptr()) };
+        let status = unsafe {
+            ffi::audio_component::at_audio_component_get_description(
+                self.as_raw().cast(),
+                description.as_mut_ptr(),
+            )
+        };
         status_to_result("AudioComponentGetDescription", status)?;
         Ok(unsafe { description.assume_init() })
     }
 
     pub fn version(&self) -> Result<u32> {
         let mut version = 0_u32;
-        let status = unsafe { ffi::AudioComponentGetVersion(self.as_raw(), &mut version) };
+        let status = unsafe {
+            ffi::audio_component::at_audio_component_get_version(self.as_raw().cast(), &mut version)
+        };
         status_to_result("AudioComponentGetVersion", status)?;
         Ok(version)
     }
 
     pub fn new_instance(&self) -> Result<AudioComponentInstance> {
-        let mut instance = MaybeUninit::uninit();
-        let status =
-            unsafe { ffi::AudioComponentInstanceNew(self.as_raw(), instance.as_mut_ptr()) };
+        let mut handle = std::ptr::null_mut();
+        let status = unsafe {
+            ffi::audio_component::at_audio_component_instance_new(self.as_raw().cast(), &mut handle)
+        };
         status_to_result("AudioComponentInstanceNew", status)?;
-        Ok(AudioComponentInstance {
-            raw: unsafe { instance.assume_init() },
-        })
+        let raw: AudioComponentInstanceRef =
+            unsafe { ffi::audio_component::at_audio_component_instance_raw(handle) }.cast();
+        if raw.is_null() {
+            return Err(AudioToolboxError::message(
+                "AudioComponentInstanceNew",
+                "framework returned a null AudioComponentInstance",
+            ));
+        }
+        Ok(AudioComponentInstance { handle, raw })
     }
 }
 
@@ -105,41 +112,41 @@ impl Iterator for AudioComponentIter {
 }
 
 impl AudioComponentInstance {
-    pub fn as_raw(&self) -> ffi::AudioComponentInstanceRef {
+    pub fn as_raw(&self) -> AudioComponentInstanceRef {
         self.raw
     }
 
     pub fn component(&self) -> Result<AudioComponent> {
-        NonNull::new(unsafe { ffi::AudioComponentInstanceGetComponent(self.raw) })
-            .map(AudioComponent)
+        let handle = unsafe {
+            ffi::audio_component::at_audio_component_instance_get_component(self.raw.cast())
+        };
+        let raw = NonNull::new(unsafe { ffi::audio_component::at_audio_component_raw(handle) })
             .ok_or_else(|| {
                 AudioToolboxError::message(
                     "AudioComponentInstanceGetComponent",
                     "framework returned a null component",
                 )
-            })
+            })?;
+        unsafe { ffi::audio_component::at_audio_component_release(handle) };
+        Ok(AudioComponent(raw))
     }
 
     pub fn dispose(mut self) -> Result<()> {
-        let raw = self.raw;
-        self.raw = std::ptr::null_mut();
-        let status = unsafe { ffi::AudioComponentInstanceDispose(raw) };
-        status_to_result("AudioComponentInstanceDispose", status)
+        self.release();
+        Ok(())
+    }
+
+    fn release(&mut self) {
+        if !self.handle.is_null() {
+            unsafe { ffi::audio_component::at_audio_component_instance_release(self.handle) };
+            self.handle = std::ptr::null_mut();
+            self.raw = std::ptr::null_mut();
+        }
     }
 }
 
 impl Drop for AudioComponentInstance {
     fn drop(&mut self) {
-        if !self.raw.is_null() {
-            let _ = unsafe { ffi::AudioComponentInstanceDispose(self.raw) };
-        }
-    }
-}
-
-fn status_to_result(operation: &'static str, status: ffi::OSStatus) -> Result<()> {
-    if status == ffi::NO_ERR {
-        Ok(())
-    } else {
-        Err(AudioToolboxError::from_status(operation, status))
+        self.release();
     }
 }

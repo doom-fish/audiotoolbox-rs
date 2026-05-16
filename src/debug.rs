@@ -48,7 +48,7 @@ impl AudioToolboxDebugObject for AudioComponentInstance {
 }
 
 pub fn ca_show(object: &impl AudioToolboxDebugObject) {
-    unsafe { ffi::CAShow(object.debug_ptr()) };
+    unsafe { ffi::core::CAShow(object.debug_ptr()) };
 }
 
 pub fn ca_show_to_stdout(object: &impl AudioToolboxDebugObject) -> Result<()> {
@@ -90,7 +90,7 @@ fn ca_show_to_fd(object: *mut c_void, fd: i32, operation: &'static str) -> Resul
         ));
     }
 
-    unsafe { ffi::CAShowFile(object, file) };
+    unsafe { ffi::core::CAShowFile(object, file) };
     let flush_status = unsafe { libc::fflush(file) };
     let close_status = unsafe { libc::fclose(file) };
 
