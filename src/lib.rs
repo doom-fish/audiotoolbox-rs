@@ -60,13 +60,13 @@ pub use audio_file_stream::AudioFileStream;
 pub use audio_queue::{AudioQueue, AudioQueueBufferHandle};
 pub use audio_services::SystemSound;
 pub use audio_unit::AudioUnit;
-pub use avfaudio::{AVAudioEngine, AVAudioFormat, AVAudioNode};
+pub use avfaudio::{AVAudioEngine, AVAudioFormat, AVAudioNode, AVAudioPCMBuffer, AVAudioSequencer};
 pub use caf_file::CafFile;
 pub use debug::{
     ca_show, ca_show_to_stderr, ca_show_to_stdout, flush_debug_output, AudioToolboxDebugObject,
 };
 pub use error::{AudioToolboxError, Result};
 pub use ext_audio_file::{ExtAudioFile, InterleavedAudioBuffer};
-pub use format::{AudioFormat, fourcc_to_string, is_printable_fourcc};
-pub use music::{MusicPlayer, MusicSequence, MusicTrack};
+pub use format::{fourcc_to_string, is_printable_fourcc, AudioFormat};
+pub use music::{MusicEventInfo, MusicEventIterator, MusicPlayer, MusicSequence, MusicTrack};
 pub use types::*;

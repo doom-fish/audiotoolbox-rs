@@ -1,6 +1,6 @@
 use crate::{
-    AudioBufferList1, AudioClassDescription, AudioConverterPropertyId,
-    AudioStreamBasicDescription, AudioStreamPacketDescription, OSStatus,
+    AudioBufferList1, AudioClassDescription, AudioConverterPropertyId, AudioStreamBasicDescription,
+    AudioStreamPacketDescription, Boolean, OSStatus,
 };
 use std::ffi::c_void;
 
@@ -24,7 +24,7 @@ unsafe extern "C" {
         raw_converter: *mut c_void,
         property_id: AudioConverterPropertyId,
         out_size: *mut u32,
-        out_writable: *mut bool,
+        out_writable: *mut Boolean,
     ) -> OSStatus;
     pub fn at_audio_converter_get_property(
         raw_converter: *mut c_void,
@@ -37,6 +37,21 @@ unsafe extern "C" {
         property_id: AudioConverterPropertyId,
         property_data_size: u32,
         property_data: *const c_void,
+    ) -> OSStatus;
+    #[link_name = "AudioConverterConvertBuffer"]
+    pub fn at_audio_converter_convert_buffer(
+        raw_converter: *mut c_void,
+        input_data_size: u32,
+        input_data: *const c_void,
+        io_output_data_size: *mut u32,
+        out_output_data: *mut c_void,
+    ) -> OSStatus;
+    #[link_name = "AudioConverterConvertComplexBuffer"]
+    pub fn at_audio_converter_convert_complex_buffer(
+        raw_converter: *mut c_void,
+        number_pcm_frames: u32,
+        input_data: *const AudioBufferList1,
+        out_output_data: *mut AudioBufferList1,
     ) -> OSStatus;
     pub fn at_audio_converter_fill_complex_buffer_once(
         raw_converter: *mut c_void,

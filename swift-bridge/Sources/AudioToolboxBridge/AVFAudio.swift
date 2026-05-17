@@ -29,6 +29,22 @@ private final class AVAudioFormatBox {
     }
 }
 
+private final class AVAudioPCMBufferBox {
+    let value: AVAudioPCMBuffer
+
+    init(_ value: AVAudioPCMBuffer) {
+        self.value = value
+    }
+}
+
+private final class AVAudioSequencerBox {
+    let value: AVAudioSequencer
+
+    init(_ value: AVAudioSequencer) {
+        self.value = value
+    }
+}
+
 private func avAudioEngineBox(from handle: UnsafeMutableRawPointer) -> AVAudioEngineBox {
     takeUnretained(handle)
 }
@@ -38,6 +54,14 @@ private func avAudioNodeBox(from handle: UnsafeMutableRawPointer) -> AVAudioNode
 }
 
 private func avAudioFormatBox(from handle: UnsafeMutableRawPointer) -> AVAudioFormatBox {
+    takeUnretained(handle)
+}
+
+private func avAudioPCMBufferBox(from handle: UnsafeMutableRawPointer) -> AVAudioPCMBufferBox {
+    takeUnretained(handle)
+}
+
+private func avAudioSequencerBox(from handle: UnsafeMutableRawPointer) -> AVAudioSequencerBox {
     takeUnretained(handle)
 }
 
@@ -321,4 +345,199 @@ public func at_av_audio_format_copy_stream_description(
     }
     outDescription.pointee = avAudioFormatBox(from: handle).value.streamDescription.pointee
     return true
+}
+
+@_cdecl("at_av_audio_pcm_buffer_new")
+public func at_av_audio_pcm_buffer_new(
+    _ formatHandle: UnsafeMutableRawPointer?,
+    _ frameCapacity: UInt32,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Bool {
+    guard let formatHandle,
+          let outHandle,
+          let buffer = AVAudioPCMBuffer(
+              pcmFormat: avAudioFormatBox(from: formatHandle).value,
+              frameCapacity: frameCapacity
+          )
+    else {
+        return false
+    }
+    outHandle.pointee = retainObject(AVAudioPCMBufferBox(buffer))
+    return true
+}
+
+@_cdecl("at_av_audio_pcm_buffer_release")
+public func at_av_audio_pcm_buffer_release(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else {
+        return
+    }
+    releaseObject(handle, as: AVAudioPCMBufferBox.self)
+}
+
+@_cdecl("at_av_audio_pcm_buffer_format")
+public func at_av_audio_pcm_buffer_format(
+    _ handle: UnsafeMutableRawPointer?,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Bool {
+    guard let handle, let outHandle else {
+        return false
+    }
+    outHandle.pointee = retainObject(AVAudioFormatBox(avAudioPCMBufferBox(from: handle).value.format))
+    return true
+}
+
+@_cdecl("at_av_audio_pcm_buffer_frame_capacity")
+public func at_av_audio_pcm_buffer_frame_capacity(_ handle: UnsafeMutableRawPointer?) -> UInt32 {
+    guard let handle else {
+        return 0
+    }
+    return avAudioPCMBufferBox(from: handle).value.frameCapacity
+}
+
+@_cdecl("at_av_audio_pcm_buffer_frame_length")
+public func at_av_audio_pcm_buffer_frame_length(_ handle: UnsafeMutableRawPointer?) -> UInt32 {
+    guard let handle else {
+        return 0
+    }
+    return avAudioPCMBufferBox(from: handle).value.frameLength
+}
+
+@_cdecl("at_av_audio_pcm_buffer_set_frame_length")
+public func at_av_audio_pcm_buffer_set_frame_length(
+    _ handle: UnsafeMutableRawPointer?,
+    _ frameLength: UInt32
+) {
+    guard let handle else {
+        return
+    }
+    avAudioPCMBufferBox(from: handle).value.frameLength = frameLength
+}
+
+@_cdecl("at_av_audio_pcm_buffer_stride")
+public func at_av_audio_pcm_buffer_stride(_ handle: UnsafeMutableRawPointer?) -> UInt32 {
+    guard let handle else {
+        return 0
+    }
+    return UInt32(avAudioPCMBufferBox(from: handle).value.stride)
+}
+
+@_cdecl("at_av_audio_sequencer_new")
+public func at_av_audio_sequencer_new(_ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Bool {
+    guard let outHandle else {
+        return false
+    }
+    #if os(tvOS)
+    return false
+    #else
+    outHandle.pointee = retainObject(AVAudioSequencerBox(AVAudioSequencer()))
+    return true
+    #endif
+}
+
+@_cdecl("at_av_audio_sequencer_new_with_engine")
+public func at_av_audio_sequencer_new_with_engine(
+    _ engineHandle: UnsafeMutableRawPointer?,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Bool {
+    guard let engineHandle, let outHandle else {
+        return false
+    }
+    outHandle.pointee = retainObject(
+        AVAudioSequencerBox(AVAudioSequencer(audioEngine: avAudioEngineBox(from: engineHandle).value))
+    )
+    return true
+}
+
+@_cdecl("at_av_audio_sequencer_release")
+public func at_av_audio_sequencer_release(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else {
+        return
+    }
+    releaseObject(handle, as: AVAudioSequencerBox.self)
+}
+
+@_cdecl("at_av_audio_sequencer_track_count")
+public func at_av_audio_sequencer_track_count(_ handle: UnsafeMutableRawPointer?) -> UInt64 {
+    guard let handle else {
+        return 0
+    }
+    return UInt64(avAudioSequencerBox(from: handle).value.tracks.count)
+}
+
+@_cdecl("at_av_audio_sequencer_prepare_to_play")
+public func at_av_audio_sequencer_prepare_to_play(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else {
+        return
+    }
+    avAudioSequencerBox(from: handle).value.prepareToPlay()
+}
+
+@_cdecl("at_av_audio_sequencer_start")
+public func at_av_audio_sequencer_start(
+    _ handle: UnsafeMutableRawPointer?,
+    _ outError: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
+) -> Bool {
+    guard let handle else {
+        outError?.pointee = cStringCopy("AVAudioSequencer handle was null")
+        return false
+    }
+    do {
+        try avAudioSequencerBox(from: handle).value.start()
+        outError?.pointee = nil
+        return true
+    } catch {
+        outError?.pointee = copyErrorDescription(error)
+        return false
+    }
+}
+
+@_cdecl("at_av_audio_sequencer_stop")
+public func at_av_audio_sequencer_stop(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else {
+        return
+    }
+    avAudioSequencerBox(from: handle).value.stop()
+}
+
+@_cdecl("at_av_audio_sequencer_is_playing")
+public func at_av_audio_sequencer_is_playing(_ handle: UnsafeMutableRawPointer?) -> Bool {
+    guard let handle else {
+        return false
+    }
+    return avAudioSequencerBox(from: handle).value.isPlaying
+}
+
+@_cdecl("at_av_audio_sequencer_current_position_seconds")
+public func at_av_audio_sequencer_current_position_seconds(_ handle: UnsafeMutableRawPointer?) -> Double {
+    guard let handle else {
+        return 0
+    }
+    return avAudioSequencerBox(from: handle).value.currentPositionInSeconds
+}
+
+@_cdecl("at_av_audio_sequencer_set_current_position_seconds")
+public func at_av_audio_sequencer_set_current_position_seconds(
+    _ handle: UnsafeMutableRawPointer?,
+    _ position: Double
+) {
+    guard let handle else {
+        return
+    }
+    avAudioSequencerBox(from: handle).value.currentPositionInSeconds = position
+}
+
+@_cdecl("at_av_audio_sequencer_rate")
+public func at_av_audio_sequencer_rate(_ handle: UnsafeMutableRawPointer?) -> Float {
+    guard let handle else {
+        return 0
+    }
+    return avAudioSequencerBox(from: handle).value.rate
+}
+
+@_cdecl("at_av_audio_sequencer_set_rate")
+public func at_av_audio_sequencer_set_rate(_ handle: UnsafeMutableRawPointer?, _ rate: Float) {
+    guard let handle else {
+        return
+    }
+    avAudioSequencerBox(from: handle).value.rate = rate
 }

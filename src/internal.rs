@@ -1,4 +1,4 @@
-use crate::{ffi, AudioToolboxError, Result, OSStatus, NO_ERR};
+use crate::{ffi, AudioToolboxError, CFDataRef, CFURLRef, OSStatus, Result, NO_ERR};
 use std::{
     ffi::{CStr, CString},
     path::Path,
@@ -23,7 +23,10 @@ pub fn path_to_cstring(path: &Path) -> Result<CString> {
 
 pub fn string_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> Result<String> {
     if ptr.is_null() {
-        return Err(AudioToolboxError::message(operation, "framework returned a null string"));
+        return Err(AudioToolboxError::message(
+            operation,
+            "framework returned a null string",
+        ));
     }
 
     let bytes = unsafe { CStr::from_ptr(ptr) }.to_bytes().to_vec();
@@ -36,8 +39,74 @@ pub fn error_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> AudioToolb
     if ptr.is_null() {
         AudioToolboxError::message(operation, "framework returned an unknown error")
     } else {
-        string_from_owned_ptr(operation, ptr)
-            .map_or_else(|error| error, |message| AudioToolboxError::message(operation, message))
+        string_from_owned_ptr(operation, ptr).map_or_else(
+            |error| error,
+            |message| AudioToolboxError::message(operation, message),
+        )
     }
 }
 
+pub fn cf_data_from_bytes(operation: &'static str, bytes: &[u8]) -> Result<CFDataRef> {
+    let length = isize::try_from(bytes.len())
+        .map_err(|_| AudioToolboxError::message(operation, "payload exceeds isize::MAX bytes"))?;
+    let data = unsafe { ffi::core::at_cf_data_create(std::ptr::null(), bytes.as_ptr(), length) };
+    if data.is_null() {
+        Err(AudioToolboxError::message(
+            operation,
+            "framework returned a null CFDataRef",
+        ))
+    } else {
+        Ok(data)
+    }
+}
+
+pub fn cf_data_to_vec(operation: &'static str, data: CFDataRef) -> Result<Vec<u8>> {
+    if data.is_null() {
+        return Err(AudioToolboxError::message(
+            operation,
+            "framework returned a null CFDataRef",
+        ));
+    }
+    let length = unsafe { ffi::core::at_cf_data_get_length(data) };
+    let length = usize::try_from(length).map_err(|_| {
+        AudioToolboxError::message(operation, "framework returned an invalid CFData length")
+    })?;
+    let bytes = unsafe { ffi::core::at_cf_data_get_byte_ptr(data) };
+    if bytes.is_null() && length != 0 {
+        return Err(AudioToolboxError::message(
+            operation,
+            "framework returned a null CFData byte pointer",
+        ));
+    }
+    let vec = unsafe { std::slice::from_raw_parts(bytes, length) }.to_vec();
+    unsafe { ffi::core::at_cf_release(data.cast()) };
+    Ok(vec)
+}
+
+pub fn cf_url_from_path(operation: &'static str, path: &Path) -> Result<CFURLRef> {
+    let path = path_to_cstring(path)?;
+    let url = unsafe {
+        ffi::core::at_cf_url_create_from_file_system_representation(
+            std::ptr::null(),
+            path.as_ptr().cast(),
+            isize::try_from(path.as_bytes().len()).map_err(|_| {
+                AudioToolboxError::message(operation, "path exceeds isize::MAX bytes")
+            })?,
+            path.to_bytes().ends_with(b"/"),
+        )
+    };
+    if url.is_null() {
+        Err(AudioToolboxError::message(
+            operation,
+            "framework returned a null CFURLRef",
+        ))
+    } else {
+        Ok(url)
+    }
+}
+
+pub fn cf_release(object: *const std::ffi::c_void) {
+    if !object.is_null() {
+        unsafe { ffi::core::at_cf_release(object) };
+    }
+}

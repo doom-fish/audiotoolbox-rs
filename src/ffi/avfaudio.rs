@@ -1,5 +1,6 @@
 use crate::{
-    AudioStreamBasicDescription, AVAudioChannelCount, AVAudioCommonFormat, AVAudioNodeBus,
+    AVAudioChannelCount, AVAudioCommonFormat, AVAudioFrameCount, AVAudioNodeBus,
+    AudioStreamBasicDescription,
 };
 use std::ffi::{c_char, c_void};
 
@@ -11,8 +12,10 @@ unsafe extern "C" {
     pub fn at_av_audio_engine_stop(handle: *mut c_void);
     pub fn at_av_audio_engine_reset(handle: *mut c_void);
     pub fn at_av_audio_engine_is_running(handle: *mut c_void) -> bool;
-    pub fn at_av_audio_engine_output_node(handle: *mut c_void, out_handle: *mut *mut c_void)
-        -> bool;
+    pub fn at_av_audio_engine_output_node(
+        handle: *mut c_void,
+        out_handle: *mut *mut c_void,
+    ) -> bool;
     pub fn at_av_audio_engine_main_mixer_node(
         handle: *mut c_void,
         out_handle: *mut *mut c_void,
@@ -61,4 +64,36 @@ unsafe extern "C" {
         handle: *mut c_void,
         out_description: *mut AudioStreamBasicDescription,
     ) -> bool;
+
+    pub fn at_av_audio_pcm_buffer_new(
+        format_handle: *mut c_void,
+        frame_capacity: AVAudioFrameCount,
+        out_handle: *mut *mut c_void,
+    ) -> bool;
+    pub fn at_av_audio_pcm_buffer_release(handle: *mut c_void);
+    pub fn at_av_audio_pcm_buffer_format(handle: *mut c_void, out_handle: *mut *mut c_void)
+        -> bool;
+    pub fn at_av_audio_pcm_buffer_frame_capacity(handle: *mut c_void) -> AVAudioFrameCount;
+    pub fn at_av_audio_pcm_buffer_frame_length(handle: *mut c_void) -> AVAudioFrameCount;
+    pub fn at_av_audio_pcm_buffer_set_frame_length(
+        handle: *mut c_void,
+        frame_length: AVAudioFrameCount,
+    );
+    pub fn at_av_audio_pcm_buffer_stride(handle: *mut c_void) -> AVAudioChannelCount;
+
+    pub fn at_av_audio_sequencer_new(out_handle: *mut *mut c_void) -> bool;
+    pub fn at_av_audio_sequencer_new_with_engine(
+        engine_handle: *mut c_void,
+        out_handle: *mut *mut c_void,
+    ) -> bool;
+    pub fn at_av_audio_sequencer_release(handle: *mut c_void);
+    pub fn at_av_audio_sequencer_track_count(handle: *mut c_void) -> u64;
+    pub fn at_av_audio_sequencer_prepare_to_play(handle: *mut c_void);
+    pub fn at_av_audio_sequencer_start(handle: *mut c_void, out_error: *mut *mut c_char) -> bool;
+    pub fn at_av_audio_sequencer_stop(handle: *mut c_void);
+    pub fn at_av_audio_sequencer_is_playing(handle: *mut c_void) -> bool;
+    pub fn at_av_audio_sequencer_current_position_seconds(handle: *mut c_void) -> f64;
+    pub fn at_av_audio_sequencer_set_current_position_seconds(handle: *mut c_void, position: f64);
+    pub fn at_av_audio_sequencer_rate(handle: *mut c_void) -> f32;
+    pub fn at_av_audio_sequencer_set_rate(handle: *mut c_void, rate: f32);
 }

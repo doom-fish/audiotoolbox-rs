@@ -4,7 +4,7 @@ Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS via a Swift b
 
 ## Covered areas
 
-`audiotoolbox-rs` 0.2.1 now ships bridge-backed wrappers for:
+`audiotoolbox-rs` 0.2.2 now ships bridge-backed wrappers for:
 
 - `AudioFormat`
 - `AudioFile`
@@ -15,9 +15,9 @@ Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS via a Swift b
 - `AudioUnit`
 - `AUAudioUnit`
 - `AUGraph`
-- `AVFAudio` (`AVAudioEngine` / `AVAudioNode` / `AVAudioFormat`)
+- `AVFAudio` (`AVAudioEngine` / `AVAudioNode` / `AVAudioFormat` / `AVAudioPCMBuffer` / `AVAudioSequencer`)
 - `AudioQueue`
-- `MusicSequence` / `MusicPlayer`
+- `MusicSequence` / `MusicPlayer` / `MusicEventIterator`
 - `AudioServices`
 - `AudioFileStream`
 - `CAFFile`
@@ -28,14 +28,14 @@ The original raw C surface is still available behind the `raw-ffi` Cargo feature
 
 ```toml
 [dependencies]
-audiotoolbox = "0.2.1"
+audiotoolbox = "0.2.2"
 ```
 
 To reach the legacy raw C bindings as well:
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.2.1", features = ["raw-ffi"] }
+audiotoolbox = { version = "0.2.2", features = ["raw-ffi"] }
 ```
 
 ## Quick start
@@ -65,8 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - Owned Rust handles with `Drop`
 - `AudioFile`, `AudioFileComponent`, `ExtAudioFile`, and `AudioFileStream` smoke-tested against `Glass.aiff`
 - In-memory `AudioConverter` one-shot conversion helper
-- `AudioUnit`, `AUAudioUnit`, `AUGraph`, and `MusicSequence` / `MusicPlayer` creation helpers
-- `AVAudioEngine` / `AVAudioNode` / `AVAudioFormat` wrappers for the common `AVFAudio` path
+- `AudioUnit`, `AUAudioUnit`, `AUGraph`, and `MusicSequence` / `MusicPlayer` / `MusicEventIterator` creation helpers
+- `AVAudioEngine` / `AVAudioNode` / `AVAudioFormat` / `AVAudioPCMBuffer` / `AVAudioSequencer` wrappers for the common `AVFAudio` path
 - Pure-Rust `CAFFile` header parsing helpers
 - 15 numbered examples and 15 integration smoke tests
 

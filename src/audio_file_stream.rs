@@ -1,19 +1,10 @@
 use crate::{
-    ffi,
-    internal::status_to_result,
-    AudioFileStreamId,
-    AudioFileStreamParseFlags,
-    AudioFileStreamPropertyId,
-    AudioStreamBasicDescription,
-    AudioToolboxError,
-    Result,
+    ffi, internal::status_to_result, AudioFileStreamId, AudioFileStreamParseFlags,
+    AudioFileStreamPropertyId, AudioStreamBasicDescription, AudioToolboxError, Result,
     AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_BYTE_COUNT,
-    AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_PACKET_COUNT,
-    AUDIO_FILE_STREAM_PROPERTY_BIT_RATE,
-    AUDIO_FILE_STREAM_PROPERTY_DATA_FORMAT,
-    AUDIO_FILE_STREAM_PROPERTY_FILE_FORMAT,
-    AUDIO_FILE_STREAM_PROPERTY_MAGIC_COOKIE_DATA,
-    AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE,
+    AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_PACKET_COUNT, AUDIO_FILE_STREAM_PROPERTY_BIT_RATE,
+    AUDIO_FILE_STREAM_PROPERTY_DATA_FORMAT, AUDIO_FILE_STREAM_PROPERTY_FILE_FORMAT,
+    AUDIO_FILE_STREAM_PROPERTY_MAGIC_COOKIE_DATA, AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE,
 };
 use std::mem::MaybeUninit;
 
@@ -26,7 +17,9 @@ pub struct AudioFileStream {
 impl AudioFileStream {
     pub fn open(file_type_hint: u32) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::audio_file_stream::at_audio_file_stream_open(file_type_hint, &mut handle) };
+        let status = unsafe {
+            ffi::audio_file_stream::at_audio_file_stream_open(file_type_hint, &mut handle)
+        };
         status_to_result("AudioFileStreamOpen", status)?;
         let raw: AudioFileStreamId =
             unsafe { ffi::audio_file_stream::at_audio_file_stream_raw(handle) }.cast();
@@ -62,7 +55,9 @@ impl AudioFileStream {
     }
 
     pub fn ready_to_produce_packets(&self) -> bool {
-        unsafe { ffi::audio_file_stream::at_audio_file_stream_ready_to_produce_packets(self.handle) != 0 }
+        unsafe {
+            ffi::audio_file_stream::at_audio_file_stream_ready_to_produce_packets(self.handle) != 0
+        }
     }
 
     pub fn packet_count_seen(&self) -> u64 {
@@ -120,7 +115,7 @@ impl AudioFileStream {
 
     pub fn property_info(&self, property_id: AudioFileStreamPropertyId) -> Result<(u32, bool)> {
         let mut data_size = 0_u32;
-        let mut writable = false;
+        let mut writable = 0_u8;
         let status = unsafe {
             ffi::audio_file_stream::at_audio_file_stream_get_property_info(
                 self.raw.cast(),
@@ -130,7 +125,7 @@ impl AudioFileStream {
             )
         };
         status_to_result("AudioFileStreamGetPropertyInfo", status)?;
-        Ok((data_size, writable))
+        Ok((data_size, writable != 0))
     }
 
     pub fn close(mut self) -> Result<()> {

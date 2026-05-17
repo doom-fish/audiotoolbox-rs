@@ -1,19 +1,15 @@
 use crate::{
-    ffi,
-    internal::status_to_result,
-    AudioBuffer,
-    AudioBufferList,
-    AudioClassDescription,
-    AudioConverterPropertyId,
-    AudioConverterRef,
-    AudioStreamBasicDescription,
-    AudioStreamPacketDescription,
-    AudioToolboxError,
-    Result,
+    ffi, internal::status_to_result, AudioBuffer, AudioBufferList, AudioClassDescription,
+    AudioConverterPrimeInfo, AudioConverterPropertyId, AudioConverterRef,
+    AudioStreamBasicDescription, AudioStreamPacketDescription, AudioToolboxError, AudioValueRange,
+    Result, AUDIO_CONVERTER_PROPERTY_APPLICABLE_ENCODE_BIT_RATES,
+    AUDIO_CONVERTER_PROPERTY_APPLICABLE_ENCODE_SAMPLE_RATES,
+    AUDIO_CONVERTER_PROPERTY_CALCULATE_INPUT_BUFFER_SIZE,
+    AUDIO_CONVERTER_PROPERTY_CALCULATE_OUTPUT_BUFFER_SIZE,
     AUDIO_CONVERTER_PROPERTY_CURRENT_INPUT_STREAM_DESCRIPTION,
     AUDIO_CONVERTER_PROPERTY_CURRENT_OUTPUT_STREAM_DESCRIPTION,
-    AUDIO_CONVERTER_PROPERTY_ENCODE_BIT_RATE,
-    AUDIO_CONVERTER_PROPERTY_MAXIMUM_OUTPUT_PACKET_SIZE,
+    AUDIO_CONVERTER_PROPERTY_ENCODE_BIT_RATE, AUDIO_CONVERTER_PROPERTY_MAXIMUM_OUTPUT_PACKET_SIZE,
+    AUDIO_CONVERTER_PROPERTY_PRIME_INFO,
 };
 use std::{marker::PhantomData, mem::MaybeUninit};
 
@@ -142,7 +138,8 @@ macro_rules! impl_converter_methods {
     ($ty:ty) => {
         impl $ty {
             pub fn reset(&self) -> Result<()> {
-                let status = unsafe { ffi::audio_converter::at_audio_converter_reset(self.raw.cast()) };
+                let status =
+                    unsafe { ffi::audio_converter::at_audio_converter_reset(self.raw.cast()) };
                 status_to_result("AudioConverterReset", status)
             }
 
@@ -151,7 +148,7 @@ macro_rules! impl_converter_methods {
                 property_id: AudioConverterPropertyId,
             ) -> Result<(u32, bool)> {
                 let mut size = 0_u32;
-                let mut writable = false;
+                let mut writable = 0_u8;
                 let status = unsafe {
                     ffi::audio_converter::at_audio_converter_get_property_info(
                         self.raw.cast(),
@@ -161,7 +158,7 @@ macro_rules! impl_converter_methods {
                     )
                 };
                 status_to_result("AudioConverterGetPropertyInfo", status)?;
-                Ok((size, writable))
+                Ok((size, writable != 0))
             }
 
             pub fn current_input_stream_description(&self) -> Result<AudioStreamBasicDescription> {
@@ -203,6 +200,119 @@ macro_rules! impl_converter_methods {
                     AUDIO_CONVERTER_PROPERTY_MAXIMUM_OUTPUT_PACKET_SIZE,
                     "AudioConverterGetProperty(maximum output packet size)",
                 )
+            }
+
+            pub fn applicable_encode_bit_rates(&self) -> Result<Vec<AudioValueRange>> {
+                get_property_array(
+                    self.raw,
+                    AUDIO_CONVERTER_PROPERTY_APPLICABLE_ENCODE_BIT_RATES,
+                    "AudioConverterGetProperty(applicable encode bit rates)",
+                )
+            }
+
+            pub fn applicable_encode_sample_rates(&self) -> Result<Vec<AudioValueRange>> {
+                get_property_array(
+                    self.raw,
+                    AUDIO_CONVERTER_PROPERTY_APPLICABLE_ENCODE_SAMPLE_RATES,
+                    "AudioConverterGetProperty(applicable encode sample rates)",
+                )
+            }
+
+            pub fn prime_info(&self) -> Result<AudioConverterPrimeInfo> {
+                get_property_typed(
+                    self.raw,
+                    AUDIO_CONVERTER_PROPERTY_PRIME_INFO,
+                    "AudioConverterGetProperty(prime info)",
+                )
+            }
+
+            pub fn set_prime_info(&self, prime_info: &AudioConverterPrimeInfo) -> Result<()> {
+                set_property_typed(
+                    self.raw,
+                    AUDIO_CONVERTER_PROPERTY_PRIME_INFO,
+                    prime_info,
+                    "AudioConverterSetProperty(prime info)",
+                )
+            }
+
+            pub fn calculate_input_buffer_size(&self, output_byte_size: u32) -> Result<u32> {
+                let mut byte_size = output_byte_size;
+                let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
+                let status = unsafe {
+                    ffi::audio_converter::at_audio_converter_get_property(
+                        self.raw.cast(),
+                        AUDIO_CONVERTER_PROPERTY_CALCULATE_INPUT_BUFFER_SIZE,
+                        &mut size,
+                        std::ptr::from_mut(&mut byte_size).cast(),
+                    )
+                };
+                status_to_result(
+                    "AudioConverterGetProperty(calculate input buffer size)",
+                    status,
+                )?;
+                Ok(byte_size)
+            }
+
+            pub fn calculate_output_buffer_size(&self, input_byte_size: u32) -> Result<u32> {
+                let mut byte_size = input_byte_size;
+                let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
+                let status = unsafe {
+                    ffi::audio_converter::at_audio_converter_get_property(
+                        self.raw.cast(),
+                        AUDIO_CONVERTER_PROPERTY_CALCULATE_OUTPUT_BUFFER_SIZE,
+                        &mut size,
+                        std::ptr::from_mut(&mut byte_size).cast(),
+                    )
+                };
+                status_to_result(
+                    "AudioConverterGetProperty(calculate output buffer size)",
+                    status,
+                )?;
+                Ok(byte_size)
+            }
+
+            pub fn convert_buffer(
+                &self,
+                input: &[u8],
+                output_byte_capacity: u32,
+            ) -> Result<Vec<u8>> {
+                let input_len = u32::try_from(input.len()).map_err(|_| {
+                    AudioToolboxError::message(
+                        "AudioConverterConvertBuffer",
+                        "input buffer exceeds UInt32::MAX bytes",
+                    )
+                })?;
+                let mut output_len = output_byte_capacity;
+                let mut output = vec![0_u8; output_byte_capacity as usize];
+                let status = unsafe {
+                    ffi::audio_converter::at_audio_converter_convert_buffer(
+                        self.raw.cast(),
+                        input_len,
+                        input.as_ptr().cast(),
+                        &mut output_len,
+                        output.as_mut_ptr().cast(),
+                    )
+                };
+                status_to_result("AudioConverterConvertBuffer", status)?;
+                output.truncate(output_len as usize);
+                Ok(output)
+            }
+
+            pub fn convert_complex_buffer(
+                &self,
+                number_pcm_frames: u32,
+                input_data: &AudioBufferList<1>,
+                output_data: &mut AudioBufferList<1>,
+            ) -> Result<()> {
+                let status = unsafe {
+                    ffi::audio_converter::at_audio_converter_convert_complex_buffer(
+                        self.raw.cast(),
+                        number_pcm_frames,
+                        input_data,
+                        output_data,
+                    )
+                };
+                status_to_result("AudioConverterConvertComplexBuffer", status)
             }
 
             pub fn fill_complex_buffer_once(
@@ -347,4 +457,51 @@ fn set_property_typed<T: Copy>(
         )
     };
     status_to_result(operation, status)
+}
+
+fn get_property_array<T: Copy>(
+    raw: AudioConverterRef,
+    property_id: AudioConverterPropertyId,
+    operation: &'static str,
+) -> Result<Vec<T>> {
+    let mut byte_size = 0_u32;
+    let status = unsafe {
+        ffi::audio_converter::at_audio_converter_get_property_info(
+            raw.cast(),
+            property_id,
+            &mut byte_size,
+            std::ptr::null_mut(),
+        )
+    };
+    status_to_result(operation, status)?;
+    if byte_size == 0 {
+        return Ok(Vec::new());
+    }
+
+    let element_size = std::mem::size_of::<T>();
+    if byte_size as usize % element_size != 0 {
+        return Err(AudioToolboxError::message(
+            operation,
+            "property payload is not an integral number of elements",
+        ));
+    }
+
+    let mut bytes = vec![0_u8; byte_size as usize];
+    let status = unsafe {
+        ffi::audio_converter::at_audio_converter_get_property(
+            raw.cast(),
+            property_id,
+            &mut byte_size,
+            bytes.as_mut_ptr().cast(),
+        )
+    };
+    status_to_result(operation, status)?;
+    let (prefix, values, suffix) = unsafe { bytes.align_to::<T>() };
+    if !prefix.is_empty() || !suffix.is_empty() {
+        return Err(AudioToolboxError::message(
+            operation,
+            "property payload is not aligned for the requested element type",
+        ));
+    }
+    Ok(values.to_vec())
 }

@@ -1,4 +1,7 @@
-use crate::{AudioComponentDescription, OSStatus};
+use crate::{
+    AudioComponentDescription, AudioComponentInstanceRef, AudioComponentRef,
+    AudioComponentValidationResult, Boolean, CFDictionaryRef, OSStatus,
+};
 use std::ffi::{c_char, c_void};
 
 unsafe extern "C" {
@@ -28,4 +31,20 @@ unsafe extern "C" {
     pub fn at_audio_component_instance_raw(handle: *mut c_void) -> *mut c_void;
     pub fn at_audio_component_instance_release(handle: *mut c_void);
     pub fn at_audio_component_instance_get_component(raw_instance: *mut c_void) -> *mut c_void;
+    #[link_name = "AudioComponentInstanceCanDo"]
+    pub fn at_audio_component_instance_can_do(
+        raw_instance: AudioComponentInstanceRef,
+        selector_id: i16,
+    ) -> Boolean;
+    #[link_name = "AudioComponentCopyConfigurationInfo"]
+    pub fn at_audio_component_copy_configuration_info(
+        raw_component: AudioComponentRef,
+        out_configuration_info: *mut CFDictionaryRef,
+    ) -> OSStatus;
+    #[link_name = "AudioComponentValidate"]
+    pub fn at_audio_component_validate(
+        raw_component: AudioComponentRef,
+        validation_parameters: CFDictionaryRef,
+        out_validation_result: *mut AudioComponentValidationResult,
+    ) -> OSStatus;
 }

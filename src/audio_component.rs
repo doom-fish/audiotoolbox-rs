@@ -1,11 +1,8 @@
 use crate::{
     ffi,
     internal::{status_to_result, string_from_owned_ptr},
-    AudioComponentDescription,
-    AudioComponentInstanceRef,
-    AudioComponentRef,
-    AudioToolboxError,
-    Result,
+    AudioComponentDescription, AudioComponentInstanceRef, AudioComponentRef,
+    AudioComponentValidationResult, AudioToolboxError, CFDictionaryRef, Result,
 };
 use std::{mem::MaybeUninit, ptr::NonNull};
 
@@ -29,7 +26,10 @@ impl AudioComponent {
         unsafe { ffi::audio_component::at_audio_component_count(std::ptr::from_ref(&description)) }
     }
 
-    pub fn find_next(previous: Option<Self>, description: AudioComponentDescription) -> Option<Self> {
+    pub fn find_next(
+        previous: Option<Self>,
+        description: AudioComponentDescription,
+    ) -> Option<Self> {
         let previous_raw = previous.map_or(std::ptr::null_mut(), |component| component.as_raw());
         let handle = unsafe {
             ffi::audio_component::at_audio_component_find_next(
@@ -83,6 +83,34 @@ impl AudioComponent {
         Ok(version)
     }
 
+    pub fn copy_configuration_info_raw(&self) -> Result<CFDictionaryRef> {
+        let mut configuration_info = std::ptr::null();
+        let status = unsafe {
+            ffi::audio_component::at_audio_component_copy_configuration_info(
+                self.as_raw(),
+                &mut configuration_info,
+            )
+        };
+        status_to_result("AudioComponentCopyConfigurationInfo", status)?;
+        Ok(configuration_info)
+    }
+
+    pub fn validate_raw(
+        &self,
+        validation_parameters: Option<CFDictionaryRef>,
+    ) -> Result<AudioComponentValidationResult> {
+        let mut validation_result = 0_u32;
+        let status = unsafe {
+            ffi::audio_component::at_audio_component_validate(
+                self.as_raw(),
+                validation_parameters.unwrap_or(std::ptr::null()),
+                &mut validation_result,
+            )
+        };
+        status_to_result("AudioComponentValidate", status)?;
+        Ok(validation_result)
+    }
+
     pub fn new_instance(&self) -> Result<AudioComponentInstance> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -129,6 +157,12 @@ impl AudioComponentInstance {
             })?;
         unsafe { ffi::audio_component::at_audio_component_release(handle) };
         Ok(AudioComponent(raw))
+    }
+
+    pub fn can_do(&self, selector_id: i16) -> bool {
+        unsafe {
+            ffi::audio_component::at_audio_component_instance_can_do(self.raw, selector_id) != 0
+        }
     }
 
     pub fn dispose(mut self) -> Result<()> {

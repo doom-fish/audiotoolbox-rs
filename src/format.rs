@@ -1,30 +1,18 @@
 use crate::{
-    ffi,
-    internal::status_to_result,
-    AudioClassDescription,
-    AudioComponentDescription,
-    AudioFormatFlags,
-    AudioFormatId,
-    AudioFormatPropertyId,
-    AudioStreamBasicDescription,
-    AudioValueRange,
-    Result,
-    AUDIO_COMPONENT_MANUFACTURER_APPLE,
-    AUDIO_FORMAT_FLAG_IS_NON_INTERLEAVED,
-    AUDIO_FORMAT_FLAG_IS_PACKED,
-    AUDIO_FORMAT_FLAG_IS_SIGNED_INTEGER,
-    AUDIO_FORMAT_FLAGS_NATIVE_ENDIAN,
-    AUDIO_FORMAT_LINEAR_PCM,
+    ffi, internal::status_to_result, AudioBalanceFade, AudioClassDescription,
+    AudioComponentDescription, AudioFormatFlags, AudioFormatId, AudioFormatInfo,
+    AudioFormatListItem, AudioFormatPropertyId, AudioPanningInfo, AudioStreamBasicDescription,
+    AudioValueRange, Result, AUDIO_COMPONENT_MANUFACTURER_APPLE, AUDIO_FORMAT_FLAGS_NATIVE_ENDIAN,
+    AUDIO_FORMAT_FLAG_IS_NON_INTERLEAVED, AUDIO_FORMAT_FLAG_IS_PACKED,
+    AUDIO_FORMAT_FLAG_IS_SIGNED_INTEGER, AUDIO_FORMAT_LINEAR_PCM,
     AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_BIT_RATES,
-    AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_SAMPLE_RATES,
-    AUDIO_FORMAT_PROPERTY_DECODE_FORMAT_IDS,
-    AUDIO_FORMAT_PROPERTY_DECODERS,
-    AUDIO_FORMAT_PROPERTY_ENCODE_FORMAT_IDS,
-    AUDIO_FORMAT_PROPERTY_ENCODERS,
-    AUDIO_FORMAT_PROPERTY_FORMAT_EMPLOYS_DEPENDENT_PACKETS,
-    AUDIO_FORMAT_PROPERTY_FORMAT_INFO,
-    AUDIO_FORMAT_PROPERTY_FORMAT_IS_EXTERNALLY_FRAMED,
-    AUDIO_FORMAT_PROPERTY_FORMAT_IS_VBR,
+    AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_SAMPLE_RATES, AUDIO_FORMAT_PROPERTY_BALANCE_FADE,
+    AUDIO_FORMAT_PROPERTY_DECODERS, AUDIO_FORMAT_PROPERTY_DECODE_FORMAT_IDS,
+    AUDIO_FORMAT_PROPERTY_ENCODERS, AUDIO_FORMAT_PROPERTY_ENCODE_FORMAT_IDS,
+    AUDIO_FORMAT_PROPERTY_FIRST_PLAYABLE_FORMAT_FROM_LIST,
+    AUDIO_FORMAT_PROPERTY_FORMAT_EMPLOYS_DEPENDENT_PACKETS, AUDIO_FORMAT_PROPERTY_FORMAT_INFO,
+    AUDIO_FORMAT_PROPERTY_FORMAT_IS_EXTERNALLY_FRAMED, AUDIO_FORMAT_PROPERTY_FORMAT_IS_VBR,
+    AUDIO_FORMAT_PROPERTY_FORMAT_LIST, AUDIO_FORMAT_PROPERTY_OUTPUT_FORMAT_LIST,
     LINEAR_PCM_FORMAT_FLAG_IS_FLOAT,
 };
 use std::{ffi::c_void, mem::MaybeUninit};
@@ -128,6 +116,98 @@ impl AudioFormat {
             u32::try_from(std::mem::size_of::<AudioFormatId>()).expect("format ID fits in u32"),
             "AudioFormatGetProperty(available encode sample rates)",
         )
+    }
+
+    pub fn property_info<T>(
+        property_id: AudioFormatPropertyId,
+        specifier: Option<&T>,
+    ) -> Result<u32> {
+        let (specifier_ptr, specifier_size) =
+            specifier.map_or((std::ptr::null(), 0), |specifier| {
+                (
+                    std::ptr::from_ref(specifier).cast::<c_void>(),
+                    u32::try_from(std::mem::size_of::<T>()).expect("specifier size fits in u32"),
+                )
+            });
+        let mut size = 0_u32;
+        let status = unsafe {
+            ffi::audio_format::at_audio_format_get_property_info(
+                property_id,
+                specifier_size,
+                specifier_ptr,
+                &mut size,
+            )
+        };
+        status_to_result("AudioFormatGetPropertyInfo", status)?;
+        Ok(size)
+    }
+
+    pub fn format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
+        get_array::<AudioFormatListItem>(
+            AUDIO_FORMAT_PROPERTY_FORMAT_LIST,
+            std::ptr::from_ref(info).cast(),
+            u32::try_from(std::mem::size_of::<AudioFormatInfo>())
+                .expect("AudioFormatInfo fits in u32"),
+            "AudioFormatGetProperty(format list)",
+        )
+    }
+
+    pub fn output_format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
+        get_array::<AudioFormatListItem>(
+            AUDIO_FORMAT_PROPERTY_OUTPUT_FORMAT_LIST,
+            std::ptr::from_ref(info).cast(),
+            u32::try_from(std::mem::size_of::<AudioFormatInfo>())
+                .expect("AudioFormatInfo fits in u32"),
+            "AudioFormatGetProperty(output format list)",
+        )
+    }
+
+    pub fn first_playable_format_from_list(items: &[AudioFormatListItem]) -> Result<u32> {
+        if items.is_empty() {
+            return Err(crate::AudioToolboxError::message(
+                "AudioFormatGetProperty(first playable format from list)",
+                "at least one AudioFormatListItem is required",
+            ));
+        }
+        let mut index = 0_u32;
+        let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
+        let specifier_size = u32::try_from(std::mem::size_of_val(items))
+            .expect("AudioFormatListItem slice fits in u32");
+        let status = unsafe {
+            ffi::audio_format::at_audio_format_get_property(
+                AUDIO_FORMAT_PROPERTY_FIRST_PLAYABLE_FORMAT_FROM_LIST,
+                specifier_size,
+                items.as_ptr().cast(),
+                &mut size,
+                std::ptr::from_mut(&mut index).cast(),
+            )
+        };
+        status_to_result(
+            "AudioFormatGetProperty(first playable format from list)",
+            status,
+        )?;
+        Ok(index)
+    }
+
+    pub fn balance_fade(mut balance_fade: AudioBalanceFade) -> Result<AudioBalanceFade> {
+        let mut size = u32::try_from(std::mem::size_of::<AudioBalanceFade>())
+            .expect("AudioBalanceFade fits in u32");
+        let status = unsafe {
+            ffi::audio_format::at_audio_format_get_property(
+                AUDIO_FORMAT_PROPERTY_BALANCE_FADE,
+                u32::try_from(std::mem::size_of::<AudioBalanceFade>())
+                    .expect("AudioBalanceFade fits in u32"),
+                std::ptr::from_ref(&balance_fade).cast(),
+                &mut size,
+                std::ptr::from_mut(&mut balance_fade).cast(),
+            )
+        };
+        status_to_result("AudioFormatGetProperty(balance fade)", status)?;
+        Ok(balance_fade)
+    }
+
+    pub fn panning_matrix_size(info: &AudioPanningInfo) -> Result<u32> {
+        Self::property_info(crate::AUDIO_FORMAT_PROPERTY_PANNING_MATRIX, Some(info))
     }
 }
 

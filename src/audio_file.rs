@@ -1,22 +1,14 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result},
-    AudioFileId,
-    AudioFilePermissions,
-    AudioFilePropertyId,
-    AudioFileTypeId,
-    AudioStreamBasicDescription,
-    AudioStreamPacketDescription,
-    AudioToolboxError,
-    Result,
-    AUDIO_FILE_PROPERTY_AUDIO_DATA_PACKET_COUNT,
-    AUDIO_FILE_PROPERTY_DATA_FORMAT,
-    AUDIO_FILE_PROPERTY_ESTIMATED_DURATION,
-    AUDIO_FILE_PROPERTY_MAGIC_COOKIE_DATA,
-    AUDIO_FILE_PROPERTY_MAXIMUM_PACKET_SIZE,
-    AUDIO_FILE_READ_PERMISSION,
+    AudioFileId, AudioFilePermissions, AudioFilePropertyId, AudioFileTypeId,
+    AudioStreamBasicDescription, AudioStreamPacketDescription, AudioToolboxError, Result,
+    AUDIO_FILE_PROPERTY_AUDIO_DATA_BYTE_COUNT, AUDIO_FILE_PROPERTY_AUDIO_DATA_PACKET_COUNT,
+    AUDIO_FILE_PROPERTY_DATA_FORMAT, AUDIO_FILE_PROPERTY_DATA_OFFSET,
+    AUDIO_FILE_PROPERTY_ESTIMATED_DURATION, AUDIO_FILE_PROPERTY_MAGIC_COOKIE_DATA,
+    AUDIO_FILE_PROPERTY_MAXIMUM_PACKET_SIZE, AUDIO_FILE_READ_PERMISSION,
 };
-use std::{mem::MaybeUninit, path::Path};
+use std::{ffi::c_void, mem::MaybeUninit, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct PacketData {
@@ -58,7 +50,9 @@ impl AudioFile {
             )
         };
         status_to_result("AudioFileOpenURL", status)?;
-        let raw = ffi::audio_file::cast_audio_file_id(unsafe { ffi::audio_file::at_audio_file_raw(handle) });
+        let raw = ffi::audio_file::cast_audio_file_id(unsafe {
+            ffi::audio_file::at_audio_file_raw(handle)
+        });
         if raw.is_null() {
             return Err(AudioToolboxError::message(
                 "AudioFileOpenURL",
@@ -86,7 +80,9 @@ impl AudioFile {
             )
         };
         status_to_result("AudioFileCreateWithURL", status)?;
-        let raw = ffi::audio_file::cast_audio_file_id(unsafe { ffi::audio_file::at_audio_file_raw(handle) });
+        let raw = ffi::audio_file::cast_audio_file_id(unsafe {
+            ffi::audio_file::at_audio_file_raw(handle)
+        });
         if raw.is_null() {
             return Err(AudioToolboxError::message(
                 "AudioFileCreateWithURL",
@@ -158,6 +154,222 @@ impl AudioFile {
         )
     }
 
+    pub fn audio_data_byte_count(&self) -> Result<i64> {
+        self.get_property_typed(
+            AUDIO_FILE_PROPERTY_AUDIO_DATA_BYTE_COUNT,
+            "AudioFileGetProperty(audio data byte count)",
+        )
+    }
+
+    pub fn data_offset(&self) -> Result<i64> {
+        self.get_property_typed(
+            AUDIO_FILE_PROPERTY_DATA_OFFSET,
+            "AudioFileGetProperty(data offset)",
+        )
+    }
+
+    pub fn optimize(&self) -> Result<()> {
+        let status = unsafe { ffi::audio_file::at_audio_file_optimize(self.raw) };
+        status_to_result("AudioFileOptimize", status)
+    }
+
+    pub fn read_bytes(
+        &self,
+        starting_byte: i64,
+        byte_count: u32,
+        use_cache: bool,
+    ) -> Result<Vec<u8>> {
+        let mut bytes = vec![0_u8; byte_count as usize];
+        let mut actual_byte_count = byte_count;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_read_bytes(
+                self.raw,
+                u8::from(use_cache),
+                starting_byte,
+                &mut actual_byte_count,
+                bytes.as_mut_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileReadBytes", status)?;
+        bytes.truncate(actual_byte_count as usize);
+        Ok(bytes)
+    }
+
+    pub fn write_bytes(&self, starting_byte: i64, data: &[u8], use_cache: bool) -> Result<u32> {
+        let mut actual_byte_count = u32::try_from(data.len()).map_err(|_| {
+            AudioToolboxError::message(
+                "AudioFileWriteBytes",
+                "byte payload exceeds UInt32::MAX bytes",
+            )
+        })?;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_write_bytes(
+                self.raw,
+                u8::from(use_cache),
+                starting_byte,
+                &mut actual_byte_count,
+                data.as_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileWriteBytes", status)?;
+        Ok(actual_byte_count)
+    }
+
+    pub fn count_user_data(&self, user_data_id: u32) -> Result<u32> {
+        let mut count = 0_u32;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_count_user_data(self.raw, user_data_id, &mut count)
+        };
+        status_to_result("AudioFileCountUserData", status)?;
+        Ok(count)
+    }
+
+    pub fn user_data_size(&self, user_data_id: u32, index: u32) -> Result<u32> {
+        let mut size = 0_u32;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_user_data_size(
+                self.raw,
+                user_data_id,
+                index,
+                &mut size,
+            )
+        };
+        status_to_result("AudioFileGetUserDataSize", status)?;
+        Ok(size)
+    }
+
+    pub fn user_data_size64(&self, user_data_id: u32, index: u32) -> Result<u64> {
+        let mut size = 0_u64;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_user_data_size64(
+                self.raw,
+                user_data_id,
+                index,
+                &mut size,
+            )
+        };
+        status_to_result("AudioFileGetUserDataSize64", status)?;
+        Ok(size)
+    }
+
+    pub fn user_data(&self, user_data_id: u32, index: u32) -> Result<Vec<u8>> {
+        let mut size = self.user_data_size(user_data_id, index)?;
+        let mut bytes = vec![0_u8; size as usize];
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_user_data(
+                self.raw,
+                user_data_id,
+                index,
+                &mut size,
+                bytes.as_mut_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileGetUserData", status)?;
+        bytes.truncate(size as usize);
+        Ok(bytes)
+    }
+
+    pub fn user_data_at_offset(
+        &self,
+        user_data_id: u32,
+        index: u32,
+        offset: i64,
+        byte_count: u32,
+    ) -> Result<Vec<u8>> {
+        let mut size = byte_count;
+        let mut bytes = vec![0_u8; size as usize];
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_user_data_at_offset(
+                self.raw,
+                user_data_id,
+                index,
+                offset,
+                &mut size,
+                bytes.as_mut_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileGetUserDataAtOffset", status)?;
+        bytes.truncate(size as usize);
+        Ok(bytes)
+    }
+
+    pub fn set_user_data(&self, user_data_id: u32, index: u32, data: &[u8]) -> Result<()> {
+        let size = u32::try_from(data.len()).map_err(|_| {
+            AudioToolboxError::message(
+                "AudioFileSetUserData",
+                "user data payload exceeds UInt32::MAX bytes",
+            )
+        })?;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_set_user_data(
+                self.raw,
+                user_data_id,
+                index,
+                size,
+                data.as_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileSetUserData", status)
+    }
+
+    pub fn remove_user_data(&self, user_data_id: u32, index: u32) -> Result<()> {
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_remove_user_data(self.raw, user_data_id, index)
+        };
+        status_to_result("AudioFileRemoveUserData", status)
+    }
+
+    pub fn global_info_size<T>(
+        property_id: AudioFilePropertyId,
+        specifier: Option<&T>,
+    ) -> Result<u32> {
+        let (specifier_ptr, specifier_size) =
+            specifier.map_or((std::ptr::null(), 0), |specifier| {
+                (
+                    std::ptr::from_ref(specifier).cast::<c_void>(),
+                    u32::try_from(std::mem::size_of::<T>()).expect("specifier fits in u32"),
+                )
+            });
+        let mut size = 0_u32;
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_global_info_size(
+                property_id,
+                specifier_size,
+                specifier_ptr,
+                &mut size,
+            )
+        };
+        status_to_result("AudioFileGetGlobalInfoSize", status)?;
+        Ok(size)
+    }
+
+    pub fn global_info_bytes<T>(
+        property_id: AudioFilePropertyId,
+        specifier: Option<&T>,
+    ) -> Result<Vec<u8>> {
+        let (specifier_ptr, specifier_size) =
+            specifier.map_or((std::ptr::null(), 0), |specifier| {
+                (
+                    std::ptr::from_ref(specifier).cast::<c_void>(),
+                    u32::try_from(std::mem::size_of::<T>()).expect("specifier fits in u32"),
+                )
+            });
+        let mut size = Self::global_info_size(property_id, specifier)?;
+        let mut bytes = vec![0_u8; size as usize];
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_get_global_info(
+                property_id,
+                specifier_size,
+                specifier_ptr,
+                &mut size,
+                bytes.as_mut_ptr().cast(),
+            )
+        };
+        status_to_result("AudioFileGetGlobalInfo", status)?;
+        bytes.truncate(size as usize);
+        Ok(bytes)
+    }
+
     pub fn get_property_bytes(
         &self,
         property_id: AudioFilePropertyId,
@@ -194,6 +406,47 @@ impl AudioFile {
                 property_id,
                 length,
                 bytes.as_ptr().cast(),
+            )
+        };
+        status_to_result(operation, status)
+    }
+
+    pub fn get_property_array<T: Copy>(
+        &self,
+        property_id: AudioFilePropertyId,
+        operation: &'static str,
+    ) -> Result<Vec<T>> {
+        let bytes = self.get_property_bytes(property_id, operation)?;
+        let element_size = std::mem::size_of::<T>();
+        if element_size == 0 || bytes.len() % element_size != 0 {
+            return Err(AudioToolboxError::message(
+                operation,
+                "property payload is not an integral number of elements",
+            ));
+        }
+        let (prefix, values, suffix) = unsafe { bytes.align_to::<T>() };
+        if !prefix.is_empty() || !suffix.is_empty() {
+            return Err(AudioToolboxError::message(
+                operation,
+                "property payload is not aligned for the requested element type",
+            ));
+        }
+        Ok(values.to_vec())
+    }
+
+    pub fn set_property_typed<T: Copy>(
+        &self,
+        property_id: AudioFilePropertyId,
+        value: &T,
+        operation: &'static str,
+    ) -> Result<()> {
+        let size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
+        let status = unsafe {
+            ffi::audio_file::at_audio_file_set_property(
+                self.raw.cast(),
+                property_id,
+                size,
+                std::ptr::from_ref(value).cast(),
             )
         };
         status_to_result(operation, status)
@@ -249,7 +502,7 @@ impl AudioFile {
         Ok(io_num_packets)
     }
 
-    fn get_property_typed<T: Copy>(
+    pub fn get_property_typed<T: Copy>(
         &self,
         property_id: AudioFilePropertyId,
         operation: &'static str,

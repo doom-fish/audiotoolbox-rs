@@ -1,5 +1,5 @@
 use audiotoolbox::{
-    AudioComponentDescription, AUGraph, Result, AUDIO_COMPONENT_TYPE_OUTPUT,
+    AUGraph, AudioComponentDescription, Result, AUDIO_COMPONENT_TYPE_OUTPUT,
     AUDIO_UNIT_SUBTYPE_GENERIC_OUTPUT,
 };
 
@@ -15,5 +15,11 @@ fn au_graph_adds_and_describes_nodes() -> Result<()> {
     assert_eq!(graph.node_count()?, 1);
     assert_eq!(graph.node_description(output_node)?, output_description);
     graph.open()?;
+    assert!(graph.is_open()?);
+    assert!(!graph.is_initialized()?);
+    assert!(!graph.is_running()?);
+    let _ = graph.update()?;
+    assert!(graph.cpu_load()? >= 0.0);
+    assert_eq!(graph.interaction_count()?, 0);
     Ok(())
 }

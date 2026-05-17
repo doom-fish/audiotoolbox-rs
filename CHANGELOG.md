@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.2] - 2026-05-17
+
+### Added
+
+- Expanded `AudioFile` with byte I/O, optimize, user-data, and global-info helpers.
+- Expanded `AudioFormat`, `AudioConverter`, `AudioComponent`, `AudioUnit`, `AUGraph`, and `MusicSequence` / `MusicPlayer` with more direct C-backed wrappers.
+- Added `MusicEventIterator`, `AVAudioPCMBuffer`, and `AVAudioSequencer` wrappers plus smoke-test coverage for the newly exposed APIs.
+- Extended the `raw-ffi` feature with additional `AudioFormat`, `AudioFile`, `AudioConverter`, `AudioComponent`, `AudioUnit`, `AUGraph`, and `Music*` entry points.
+
+### Changed
+
+- Bumped the crate to `0.2.2`.
+- Refreshed the README to document the broadened wrapper surface.
+
 ## [0.2.1] - 2026-05-16
 
 ### Added

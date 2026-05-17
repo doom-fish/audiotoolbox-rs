@@ -1,11 +1,9 @@
-use crate::{AudioFileStreamParseFlags, AudioFileStreamPropertyId, OSStatus};
+use crate::{AudioFileStreamParseFlags, AudioFileStreamPropertyId, Boolean, OSStatus};
 use std::ffi::c_void;
 
 unsafe extern "C" {
-    pub fn at_audio_file_stream_open(
-        file_type_hint: u32,
-        out_handle: *mut *mut c_void,
-    ) -> OSStatus;
+    pub fn at_audio_file_stream_open(file_type_hint: u32, out_handle: *mut *mut c_void)
+        -> OSStatus;
     pub fn at_audio_file_stream_raw(handle: *mut c_void) -> *mut c_void;
     pub fn at_audio_file_stream_release(handle: *mut c_void);
     pub fn at_audio_file_stream_parse_bytes(
@@ -18,7 +16,7 @@ unsafe extern "C" {
         raw_stream: *mut c_void,
         property_id: AudioFileStreamPropertyId,
         out_property_data_size: *mut u32,
-        out_writable: *mut bool,
+        out_writable: *mut Boolean,
     ) -> OSStatus;
     pub fn at_audio_file_stream_get_property(
         raw_stream: *mut c_void,
