@@ -41,6 +41,7 @@ impl AudioFile {
     ) -> Result<Self> {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
+        // SAFETY: Safe FFI call to AudioFileOpenURL with valid C string and output handle pointer.
         let status = unsafe {
             ffi::audio_file::at_audio_file_open(
                 path.as_ptr(),
@@ -50,6 +51,7 @@ impl AudioFile {
             )
         };
         status_to_result("AudioFileOpenURL", status)?;
+        // SAFETY: handle is valid after successful status check; cast to opaque type.
         let raw = ffi::audio_file::cast_audio_file_id(unsafe {
             ffi::audio_file::at_audio_file_raw(handle)
         });

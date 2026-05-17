@@ -25,6 +25,9 @@ impl AudioFormat {
     ) -> Result<AudioStreamBasicDescription> {
         let mut size = u32::try_from(std::mem::size_of::<AudioStreamBasicDescription>())
             .expect("AudioStreamBasicDescription fits in u32");
+        // SAFETY: Safe FFI call to AudioFormatGetProperty with valid stack-allocated data
+        // structures. The mutable reference is valid for the duration of the call, and
+        // the result status code is checked before the data is used.
         let status = unsafe {
             ffi::audio_format::at_audio_format_get_property(
                 AUDIO_FORMAT_PROPERTY_FORMAT_INFO,
@@ -218,6 +221,8 @@ fn get_u32_with_specifier<T>(
 ) -> Result<u32> {
     let mut value = MaybeUninit::<u32>::uninit();
     let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
+    // SAFETY: Safe FFI call to AudioFormatGetProperty with valid data. The MaybeUninit
+    // buffer is properly sized, and result is checked before assume_init().
     let status = unsafe {
         ffi::audio_format::at_audio_format_get_property(
             property_id,
@@ -228,6 +233,7 @@ fn get_u32_with_specifier<T>(
         )
     };
     status_to_result(operation, status)?;
+    // SAFETY: Status checked above ensures the value was initialized by AudioToolbox.
     Ok(unsafe { value.assume_init() })
 }
 
@@ -238,6 +244,7 @@ fn get_array<T: Copy>(
     operation: &'static str,
 ) -> Result<Vec<T>> {
     let mut byte_size = 0_u32;
+    // SAFETY: Safe FFI call to AudioFormatGetPropertyInfo with valid inputs.
     let status = unsafe {
         ffi::audio_format::at_audio_format_get_property_info(
             property_id,
@@ -261,6 +268,8 @@ fn get_array<T: Copy>(
     }
 
     let mut values = Vec::<T>::with_capacity(byte_size as usize / element_size);
+    // SAFETY: Safe FFI call to AudioFormatGetProperty with properly allocated buffer.
+    // Capacity is verified above to be an integral number of T elements.
     let status = unsafe {
         ffi::audio_format::at_audio_format_get_property(
             property_id,
@@ -272,6 +281,7 @@ fn get_array<T: Copy>(
     };
     status_to_result(operation, status)?;
 
+    // SAFETY: Result status checked above; byte_size is verified to be a multiple of element_size.
     unsafe { values.set_len(byte_size as usize / element_size) };
     Ok(values)
 }
