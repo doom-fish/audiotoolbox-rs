@@ -43,7 +43,7 @@ cargo-clippy = []
 raw-ffi = []
 
 [dependencies]
-apple-cf = { version = ">=0.2, <0.6", default-features = false }
+apple-cf = { version = ">=0.2, <0.8", default-features = false }
 libc = "0.2"
 
 [package.metadata.docs.rs]
