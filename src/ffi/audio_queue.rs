@@ -1,6 +1,4 @@
-use crate::{
-    AudioQueueParameterId, AudioQueueParameterValue, AudioQueuePropertyId, OSStatus,
-};
+use crate::{AudioQueueParameterId, AudioQueueParameterValue, AudioQueuePropertyId, OSStatus};
 use std::ffi::c_void;
 
 unsafe extern "C" {

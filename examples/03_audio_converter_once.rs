@@ -15,6 +15,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         4,
     )?;
 
-    println!("converted_packets={} output_bytes={}", output.packet_count, output.data.len());
+    println!(
+        "converted_packets={} output_bytes={}",
+        output.packet_count,
+        output.data.len()
+    );
     Ok(())
 }

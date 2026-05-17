@@ -14,9 +14,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     unit.set_stream_format(AUDIO_UNIT_SCOPE_INPUT, 0, &input)?;
     unit.set_stream_format(AUDIO_UNIT_SCOPE_OUTPUT, 0, &output)?;
     unit.initialize()?;
-    println!("input_bits={} output_bits={}",
-        unit.stream_format(AUDIO_UNIT_SCOPE_INPUT, 0)?.mBitsPerChannel,
-        unit.stream_format(AUDIO_UNIT_SCOPE_OUTPUT, 0)?.mBitsPerChannel,
+    println!(
+        "input_bits={} output_bits={}",
+        unit.stream_format(AUDIO_UNIT_SCOPE_INPUT, 0)?
+            .mBitsPerChannel,
+        unit.stream_format(AUDIO_UNIT_SCOPE_OUTPUT, 0)?
+            .mBitsPerChannel,
     );
     unit.uninitialize()?;
     Ok(())

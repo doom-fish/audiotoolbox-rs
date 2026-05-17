@@ -1,5 +1,5 @@
 use audiotoolbox::{
-    AudioComponentDescription, AUGraph, AUDIO_COMPONENT_TYPE_OUTPUT,
+    AUGraph, AudioComponentDescription, AUDIO_COMPONENT_TYPE_OUTPUT,
     AUDIO_UNIT_SUBTYPE_GENERIC_OUTPUT,
 };
 

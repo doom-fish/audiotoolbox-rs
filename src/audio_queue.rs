@@ -1,16 +1,7 @@
 use crate::{
-    ffi,
-    internal::status_to_result,
-    AudioQueueBufferRef,
-    AudioQueueParameterId,
-    AudioQueueParameterValue,
-    AudioQueuePropertyId,
-    AudioQueueRef,
-    AudioStreamBasicDescription,
-    AudioToolboxError,
-    Result,
-    AUDIO_QUEUE_PARAM_VOLUME,
-    AUDIO_QUEUE_PROPERTY_IS_RUNNING,
+    ffi, internal::status_to_result, AudioQueueBufferRef, AudioQueueParameterId,
+    AudioQueueParameterValue, AudioQueuePropertyId, AudioQueueRef, AudioStreamBasicDescription,
+    AudioToolboxError, Result, AUDIO_QUEUE_PARAM_VOLUME, AUDIO_QUEUE_PROPERTY_IS_RUNNING,
     AUDIO_QUEUE_PROPERTY_STREAM_DESCRIPTION,
 };
 use std::mem::MaybeUninit;
@@ -60,10 +51,17 @@ impl AudioQueue {
         )? != 0)
     }
 
-    pub fn get_parameter(&self, parameter_id: AudioQueueParameterId) -> Result<AudioQueueParameterValue> {
+    pub fn get_parameter(
+        &self,
+        parameter_id: AudioQueueParameterId,
+    ) -> Result<AudioQueueParameterValue> {
         let mut value = 0.0_f32;
         let status = unsafe {
-            ffi::audio_queue::at_audio_queue_get_parameter(self.raw.cast(), parameter_id, &mut value)
+            ffi::audio_queue::at_audio_queue_get_parameter(
+                self.raw.cast(),
+                parameter_id,
+                &mut value,
+            )
         };
         status_to_result("AudioQueueGetParameter", status)?;
         Ok(value)
@@ -91,7 +89,11 @@ impl AudioQueue {
     pub fn allocate_buffer(&self, byte_size: u32) -> Result<AudioQueueBufferHandle> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::audio_queue::at_audio_queue_allocate_buffer(self.raw.cast(), byte_size, &mut handle)
+            ffi::audio_queue::at_audio_queue_allocate_buffer(
+                self.raw.cast(),
+                byte_size,
+                &mut handle,
+            )
         };
         status_to_result("AudioQueueAllocateBuffer", status)?;
         let raw: AudioQueueBufferRef =

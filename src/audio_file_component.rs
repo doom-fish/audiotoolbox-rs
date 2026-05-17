@@ -1,22 +1,11 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result, string_from_owned_ptr},
-    AudioFilePermissions,
-    AudioFilePropertyId,
-    AudioFileTypeId,
-    AudioStreamBasicDescription,
-    AudioToolboxError,
-    PropertyInfo,
-    Result,
-    AUDIO_FILE_PROPERTY_DATA_FORMAT,
+    AudioFilePermissions, AudioFilePropertyId, AudioFileTypeId, AudioStreamBasicDescription,
+    AudioToolboxError, PropertyInfo, Result, AUDIO_FILE_PROPERTY_DATA_FORMAT,
     AUDIO_FILE_READ_PERMISSION,
 };
-use std::{
-    fs::OpenOptions,
-    mem::MaybeUninit,
-    os::fd::IntoRawFd,
-    path::Path,
-};
+use std::{fs::OpenOptions, mem::MaybeUninit, os::fd::IntoRawFd, path::Path};
 
 #[derive(Debug)]
 pub struct AudioFileComponent {
@@ -26,7 +15,8 @@ pub struct AudioFileComponent {
 impl AudioFileComponent {
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::audio_file_component::at_audio_file_component_new_default(&mut handle) };
+        let status =
+            unsafe { ffi::audio_file_component::at_audio_file_component_new_default(&mut handle) };
         status_to_result("AudioFileComponentNew", status)?;
         Self::from_handle(handle, "AudioFileComponentNew")
     }
@@ -61,7 +51,8 @@ impl AudioFileComponent {
     }
 
     pub fn close_file(&self) -> Result<()> {
-        let status = unsafe { ffi::audio_file_component::at_audio_file_component_close_file(self.handle) };
+        let status =
+            unsafe { ffi::audio_file_component::at_audio_file_component_close_file(self.handle) };
         status_to_result("AudioFileComponentCloseFile", status)
     }
 
@@ -171,7 +162,10 @@ fn open_file_for_permissions(
     let mut options = OpenOptions::new();
     options.read(read).write(write);
     options.open(path).map_err(|error| {
-        AudioToolboxError::message(operation, format!("failed to open {}: {error}", path.display()))
+        AudioToolboxError::message(
+            operation,
+            format!("failed to open {}: {error}", path.display()),
+        )
     })
 }
 

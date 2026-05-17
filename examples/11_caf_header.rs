@@ -9,6 +9,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     bytes.extend_from_slice(&32_i64.to_be_bytes());
 
     let caf = CafFile::parse(&bytes)?;
-    println!("caf_version={} first_chunk={:?}", caf.file_version(), caf.first_chunk());
+    println!(
+        "caf_version={} first_chunk={:?}",
+        caf.file_version(),
+        caf.first_chunk()
+    );
     Ok(())
 }

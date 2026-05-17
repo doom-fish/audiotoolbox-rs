@@ -1,6 +1,4 @@
-use audiotoolbox::{
-    AudioQueue, AudioStreamBasicDescription, Result, AUDIO_FORMAT_LINEAR_PCM,
-};
+use audiotoolbox::{AudioQueue, AudioStreamBasicDescription, Result, AUDIO_FORMAT_LINEAR_PCM};
 
 #[test]
 fn audio_queue_allocates_buffer_and_sets_volume() -> Result<()> {

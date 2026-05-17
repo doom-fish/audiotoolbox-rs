@@ -1,12 +1,8 @@
 use crate::{
     ffi,
     internal::{error_from_owned_ptr, string_from_owned_ptr},
-    AudioComponentDescription,
-    AudioComponentInstantiationOptions,
-    AudioToolboxError,
-    Result,
-    AUAudioFrameCount,
-    AUDIO_COMPONENT_INSTANTIATION_LOAD_IN_PROCESS,
+    AUAudioFrameCount, AudioComponentDescription, AudioComponentInstantiationOptions,
+    AudioToolboxError, Result, AUDIO_COMPONENT_INSTANTIATION_LOAD_IN_PROCESS,
     AUDIO_COMPONENT_MANUFACTURER_APPLE,
 };
 use std::{ffi::c_void, mem::MaybeUninit};
@@ -69,24 +65,21 @@ impl AUAudioUnit {
     }
 
     pub fn component_name(&self) -> Result<Option<String>> {
-        optional_string_from_owned_ptr(
-            "AUAudioUnitComponentName",
-            unsafe { ffi::au_audio_unit::at_au_audio_unit_copy_component_name(self.handle) },
-        )
+        optional_string_from_owned_ptr("AUAudioUnitComponentName", unsafe {
+            ffi::au_audio_unit::at_au_audio_unit_copy_component_name(self.handle)
+        })
     }
 
     pub fn audio_unit_name(&self) -> Result<Option<String>> {
-        optional_string_from_owned_ptr(
-            "AUAudioUnitAudioUnitName",
-            unsafe { ffi::au_audio_unit::at_au_audio_unit_copy_audio_unit_name(self.handle) },
-        )
+        optional_string_from_owned_ptr("AUAudioUnitAudioUnitName", unsafe {
+            ffi::au_audio_unit::at_au_audio_unit_copy_audio_unit_name(self.handle)
+        })
     }
 
     pub fn manufacturer_name(&self) -> Result<Option<String>> {
-        optional_string_from_owned_ptr(
-            "AUAudioUnitManufacturerName",
-            unsafe { ffi::au_audio_unit::at_au_audio_unit_copy_manufacturer_name(self.handle) },
-        )
+        optional_string_from_owned_ptr("AUAudioUnitManufacturerName", unsafe {
+            ffi::au_audio_unit::at_au_audio_unit_copy_manufacturer_name(self.handle)
+        })
     }
 
     pub fn input_bus_count(&self) -> u64 {

@@ -1,9 +1,7 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result},
-    AudioToolboxError,
-    Result,
-    SystemSoundId,
+    AudioToolboxError, Result, SystemSoundId,
 };
 use std::path::Path;
 
@@ -16,7 +14,8 @@ impl SystemSound {
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::audio_services::at_system_sound_create(path.as_ptr(), &mut handle) };
+        let status =
+            unsafe { ffi::audio_services::at_system_sound_create(path.as_ptr(), &mut handle) };
         status_to_result("AudioServicesCreateSystemSoundID", status)?;
         if handle.is_null() {
             return Err(AudioToolboxError::message(
@@ -50,7 +49,10 @@ impl SystemSound {
 
     pub fn set_is_ui_sound(&self, is_ui_sound: bool) -> Result<()> {
         let status = unsafe {
-            ffi::audio_services::at_system_sound_set_is_ui_sound(self.handle, u32::from(is_ui_sound))
+            ffi::audio_services::at_system_sound_set_is_ui_sound(
+                self.handle,
+                u32::from(is_ui_sound),
+            )
         };
         status_to_result("AudioServicesSetProperty(is UI sound)", status)
     }

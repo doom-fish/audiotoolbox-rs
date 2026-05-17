@@ -16,6 +16,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let frames = file.read_interleaved(&mut buffer, 256)?;
 
-    println!("decoded_frames={} decoded_bytes={}", frames, buffer.as_bytes().len());
+    println!(
+        "decoded_frames={} decoded_bytes={}",
+        frames,
+        buffer.as_bytes().len()
+    );
     Ok(())
 }

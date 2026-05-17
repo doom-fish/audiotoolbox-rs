@@ -12,6 +12,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .next()
         .expect("converter component should exist");
 
-    println!("component={} version={}", component.copy_name()?, component.version()?);
+    println!(
+        "component={} version={}",
+        component.copy_name()?,
+        component.version()?
+    );
     Ok(())
 }

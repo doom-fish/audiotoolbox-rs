@@ -1,15 +1,9 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result},
-    AudioStreamBasicDescription,
-    AudioToolboxError,
-    BorrowedAudioConverter,
-    ExtAudioFileRef,
-    Result,
-    AUDIO_FILE_FLAGS_ERASE_FILE,
-    EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
-    EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT,
-    EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
+    AudioStreamBasicDescription, AudioToolboxError, BorrowedAudioConverter, ExtAudioFileRef,
+    Result, AUDIO_FILE_FLAGS_ERASE_FILE, EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
+    EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT, EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
 };
 use std::{mem::MaybeUninit, path::Path};
 
@@ -107,7 +101,8 @@ impl ExtAudioFile {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::ext_audio_file::at_ext_audio_file_open(path.as_ptr(), &mut handle) };
+        let status =
+            unsafe { ffi::ext_audio_file::at_ext_audio_file_open(path.as_ptr(), &mut handle) };
         status_to_result("ExtAudioFileOpenURL", status)?;
         let raw: ExtAudioFileRef =
             unsafe { ffi::ext_audio_file::at_ext_audio_file_raw(handle) }.cast();
@@ -198,12 +193,12 @@ impl ExtAudioFile {
     pub fn audio_converter(&self) -> Result<BorrowedAudioConverter<'_>> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::ext_audio_file::at_ext_audio_file_copy_audio_converter(self.raw.cast(), &mut handle)
+            ffi::ext_audio_file::at_ext_audio_file_copy_audio_converter(
+                self.raw.cast(),
+                &mut handle,
+            )
         };
-        status_to_result(
-            "ExtAudioFileGetProperty(audio converter)",
-            status,
-        )?;
+        status_to_result("ExtAudioFileGetProperty(audio converter)", status)?;
         let raw = ffi::ext_audio_file::cast_audio_converter_ref(unsafe {
             ffi::ext_audio_file::at_borrowed_audio_converter_raw(handle)
         });

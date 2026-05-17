@@ -30,14 +30,21 @@ impl CafFile {
 
         let first_chunk = if bytes.len() >= 20 {
             Some(CAFChunkHeader {
-                mChunkType: u32::from_be_bytes(bytes[8..12].try_into().expect("slice length checked")),
-                mChunkSize: i64::from_be_bytes(bytes[12..20].try_into().expect("slice length checked")),
+                mChunkType: u32::from_be_bytes(
+                    bytes[8..12].try_into().expect("slice length checked"),
+                ),
+                mChunkSize: i64::from_be_bytes(
+                    bytes[12..20].try_into().expect("slice length checked"),
+                ),
             })
         } else {
             None
         };
 
-        Ok(Self { header, first_chunk })
+        Ok(Self {
+            header,
+            first_chunk,
+        })
     }
 
     pub fn header(&self) -> CAFFileHeader {

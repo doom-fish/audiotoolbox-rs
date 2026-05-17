@@ -12,8 +12,14 @@ fn au_audio_unit_reports_component_metadata() -> Result<()> {
     let unit = AUAudioUnit::new_in_process(description)?;
     let updated_maximum_frames = unit.maximum_frames_to_render().max(256);
 
-    assert_eq!(unit.component_description()?.component_type, description.component_type);
-    assert_eq!(unit.component_description()?.component_sub_type, description.component_sub_type);
+    assert_eq!(
+        unit.component_description()?.component_type,
+        description.component_type
+    );
+    assert_eq!(
+        unit.component_description()?.component_sub_type,
+        description.component_sub_type
+    );
     assert!(unit.component_name()?.is_some());
     assert!(unit.audio_unit_name()?.is_some());
     assert!(unit.manufacturer_name()?.is_some());

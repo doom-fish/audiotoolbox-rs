@@ -17,6 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     player.set_sequence(&sequence)?;
     player.preroll()?;
 
-    println!("tracks={} is_playing={}", sequence.track_count()?, player.is_playing()?);
+    println!(
+        "tracks={} is_playing={}",
+        sequence.track_count()?,
+        player.is_playing()?
+    );
     Ok(())
 }

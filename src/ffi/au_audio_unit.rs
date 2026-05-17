@@ -1,6 +1,4 @@
-use crate::{
-    AudioComponentDescription, AudioComponentInstantiationOptions, AUAudioFrameCount,
-};
+use crate::{AUAudioFrameCount, AudioComponentDescription, AudioComponentInstantiationOptions};
 use std::ffi::{c_char, c_void};
 
 unsafe extern "C" {
