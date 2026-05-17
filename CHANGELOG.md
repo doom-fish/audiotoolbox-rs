@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.3] - 2026-05-17
+
+### Added
+
+- Closed the sampled `COVERAGE_AUDIT.md` to 100% by exposing the remaining exact-name `AudioFile`, `AudioFormat`, `AudioConverter`, `AudioComponent`, `AudioUnit`, `AUGraph`, `AVFAudio`, `MusicSequence`, `AudioFileStream`, and `AudioServices` symbols.
+- Added `generated_c_types` for the long-tail C structs, callbacks, and plug-in/clock metadata still missing from the audit surface.
+- Added exact-name aliases, opaque Objective-C handle wrappers, protocol markers, and an exhaustive symbol smoke test covering every former audit gap.
+
+### Changed
+
+- Bumped the crate to `0.2.3`.
+- Refreshed the README and coverage audit to reflect the exhaustive closure.
+
 ## [0.2.2] - 2026-05-17
 
 ### Added
