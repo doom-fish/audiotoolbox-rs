@@ -4,6 +4,7 @@ use std::{
     path::Path,
 };
 
+/// Converts an AudioToolbox.framework `OSStatus` into `Result<()>`.
 pub fn status_to_result(operation: &'static str, status: OSStatus) -> Result<()> {
     if status == NO_ERR {
         Ok(())
@@ -12,6 +13,7 @@ pub fn status_to_result(operation: &'static str, status: OSStatus) -> Result<()>
     }
 }
 
+/// Converts a filesystem path for AudioToolbox.framework path-based APIs.
 pub fn path_to_cstring(path: &Path) -> Result<CString> {
     CString::new(path.to_string_lossy().as_bytes()).map_err(|_| {
         AudioToolboxError::message(
@@ -21,6 +23,7 @@ pub fn path_to_cstring(path: &Path) -> Result<CString> {
     })
 }
 
+/// Converts an owned C string returned by AudioToolbox.framework into `String`.
 pub fn string_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> Result<String> {
     if ptr.is_null() {
         return Err(AudioToolboxError::message(
@@ -35,6 +38,7 @@ pub fn string_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> Result<St
         .map_err(|_| AudioToolboxError::message(operation, "framework returned non-UTF-8 bytes"))
 }
 
+/// Builds an `AudioToolboxError` from an owned C string returned by AudioToolbox.framework.
 pub fn error_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> AudioToolboxError {
     if ptr.is_null() {
         AudioToolboxError::message(operation, "framework returned an unknown error")
@@ -46,6 +50,7 @@ pub fn error_from_owned_ptr(operation: &'static str, ptr: *mut i8) -> AudioToolb
     }
 }
 
+/// Creates a `CFDataRef` for AudioToolbox.framework APIs from a Rust byte slice.
 pub fn cf_data_from_bytes(operation: &'static str, bytes: &[u8]) -> Result<CFDataRef> {
     let length = isize::try_from(bytes.len())
         .map_err(|_| AudioToolboxError::message(operation, "payload exceeds isize::MAX bytes"))?;
@@ -60,6 +65,7 @@ pub fn cf_data_from_bytes(operation: &'static str, bytes: &[u8]) -> Result<CFDat
     }
 }
 
+/// Copies bytes out of a `CFDataRef` returned by AudioToolbox.framework.
 pub fn cf_data_to_vec(operation: &'static str, data: CFDataRef) -> Result<Vec<u8>> {
     if data.is_null() {
         return Err(AudioToolboxError::message(
@@ -83,6 +89,7 @@ pub fn cf_data_to_vec(operation: &'static str, data: CFDataRef) -> Result<Vec<u8
     Ok(vec)
 }
 
+/// Creates a `CFURLRef` for AudioToolbox.framework file APIs from a filesystem path.
 pub fn cf_url_from_path(operation: &'static str, path: &Path) -> Result<CFURLRef> {
     let path = path_to_cstring(path)?;
     let url = unsafe {
@@ -105,6 +112,7 @@ pub fn cf_url_from_path(operation: &'static str, path: &Path) -> Result<CFURLRef
     }
 }
 
+/// Wraps `CFRelease` for Core Foundation objects used by AudioToolbox.framework.
 pub fn cf_release(object: *const std::ffi::c_void) {
     if !object.is_null() {
         unsafe { ffi::core::at_cf_release(object) };

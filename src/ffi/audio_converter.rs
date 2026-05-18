@@ -5,11 +5,21 @@ use crate::{
 use std::ffi::c_void;
 
 unsafe extern "C" {
+    /// Raw binding for `AudioConverterNew`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterNew`.
     pub fn at_audio_converter_new(
         source_format: *const AudioStreamBasicDescription,
         destination_format: *const AudioStreamBasicDescription,
         out_handle: *mut *mut c_void,
     ) -> OSStatus;
+    /// Raw binding for `AudioConverterNewSpecific`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterNewSpecific`.
     pub fn at_audio_converter_new_specific(
         source_format: *const AudioStreamBasicDescription,
         destination_format: *const AudioStreamBasicDescription,
@@ -17,21 +27,51 @@ unsafe extern "C" {
         class_description_count: u32,
         out_handle: *mut *mut c_void,
     ) -> OSStatus;
+    /// Raw binding for `AudioConverterRaw`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterRaw`.
     pub fn at_audio_converter_raw(handle: *mut c_void) -> *mut c_void;
+    /// Raw binding for `AudioConverterRelease`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterRelease`.
     pub fn at_audio_converter_release(handle: *mut c_void);
+    /// Raw binding for `AudioConverterReset`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterReset`.
     pub fn at_audio_converter_reset(raw_converter: *mut c_void) -> OSStatus;
+    /// Raw binding for `AudioConverterGetPropertyInfo`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterGetPropertyInfo`.
     pub fn at_audio_converter_get_property_info(
         raw_converter: *mut c_void,
         property_id: AudioConverterPropertyId,
         out_size: *mut u32,
         out_writable: *mut Boolean,
     ) -> OSStatus;
+    /// Raw binding for `AudioConverterGetProperty`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterGetProperty`.
     pub fn at_audio_converter_get_property(
         raw_converter: *mut c_void,
         property_id: AudioConverterPropertyId,
         io_property_data_size: *mut u32,
         out_property_data: *mut c_void,
     ) -> OSStatus;
+    /// Raw binding for `AudioConverterSetProperty`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterSetProperty`.
     pub fn at_audio_converter_set_property(
         raw_converter: *mut c_void,
         property_id: AudioConverterPropertyId,
@@ -39,6 +79,11 @@ unsafe extern "C" {
         property_data: *const c_void,
     ) -> OSStatus;
     #[link_name = "AudioConverterConvertBuffer"]
+    /// Raw binding for `AudioConverterConvertBuffer`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterConvertBuffer`.
     pub fn at_audio_converter_convert_buffer(
         raw_converter: *mut c_void,
         input_data_size: u32,
@@ -47,12 +92,22 @@ unsafe extern "C" {
         out_output_data: *mut c_void,
     ) -> OSStatus;
     #[link_name = "AudioConverterConvertComplexBuffer"]
+    /// Raw binding for `AudioConverterConvertComplexBuffer`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterConvertComplexBuffer`.
     pub fn at_audio_converter_convert_complex_buffer(
         raw_converter: *mut c_void,
         number_pcm_frames: u32,
         input_data: *const AudioBufferList1,
         out_output_data: *mut AudioBufferList1,
     ) -> OSStatus;
+    /// Raw binding for `AudioConverterFillComplexBufferOnce`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterFillComplexBufferOnce`.
     pub fn at_audio_converter_fill_complex_buffer_once(
         raw_converter: *mut c_void,
         input_data: *const u8,

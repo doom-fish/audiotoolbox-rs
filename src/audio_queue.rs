@@ -7,18 +7,23 @@ use crate::{
 use std::mem::MaybeUninit;
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioQueueRef`.
 pub struct AudioQueue {
     handle: *mut std::ffi::c_void,
     raw: AudioQueueRef,
 }
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioQueueBufferRef`.
 pub struct AudioQueueBufferHandle {
     handle: *mut std::ffi::c_void,
     raw: AudioQueueBufferRef,
 }
 
 impl AudioQueue {
+    /// Wraps `AudioQueueNewOutput`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_output(format: &AudioStreamBasicDescription) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe { ffi::audio_queue::at_audio_queue_new_output(format, &mut handle) };
@@ -33,10 +38,12 @@ impl AudioQueue {
         Ok(Self { handle, raw })
     }
 
+    /// Returns the wrapped `AudioQueueRef`.
     pub fn as_raw(&self) -> AudioQueueRef {
         self.raw
     }
 
+    /// Wraps `AudioQueueGetProperty`.
     pub fn stream_description(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             AUDIO_QUEUE_PROPERTY_STREAM_DESCRIPTION,
@@ -44,6 +51,7 @@ impl AudioQueue {
         )
     }
 
+    /// Wraps `AudioQueueGetProperty`.
     pub fn is_running(&self) -> Result<bool> {
         Ok(self.get_property_typed::<u32>(
             AUDIO_QUEUE_PROPERTY_IS_RUNNING,
@@ -51,6 +59,7 @@ impl AudioQueue {
         )? != 0)
     }
 
+    /// Wraps `AudioQueueGetParameter`.
     pub fn get_parameter(
         &self,
         parameter_id: AudioQueueParameterId,
@@ -67,6 +76,7 @@ impl AudioQueue {
         Ok(value)
     }
 
+    /// Wraps `AudioQueueSetParameter`.
     pub fn set_parameter(
         &self,
         parameter_id: AudioQueueParameterId,
@@ -78,14 +88,19 @@ impl AudioQueue {
         status_to_result("AudioQueueSetParameter", status)
     }
 
+    /// Wraps `AudioQueueGetParameter` for `kAudioQueueParam_Volume`.
     pub fn volume(&self) -> Result<f32> {
         self.get_parameter(AUDIO_QUEUE_PARAM_VOLUME)
     }
 
+    /// Wraps `AudioQueueSetParameter` for `kAudioQueueParam_Volume`.
     pub fn set_volume(&self, value: f32) -> Result<()> {
         self.set_parameter(AUDIO_QUEUE_PARAM_VOLUME, value)
     }
 
+    /// Wraps `AudioQueueAllocateBuffer`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn allocate_buffer(&self, byte_size: u32) -> Result<AudioQueueBufferHandle> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -107,21 +122,25 @@ impl AudioQueue {
         Ok(AudioQueueBufferHandle { handle, raw })
     }
 
+    /// Wraps `AudioQueueStart`.
     pub fn start(&self) -> Result<()> {
         let status = unsafe { ffi::audio_queue::at_audio_queue_start(self.raw.cast()) };
         status_to_result("AudioQueueStart", status)
     }
 
+    /// Wraps `AudioQueueStop`.
     pub fn stop(&self, immediate: bool) -> Result<()> {
         let status = unsafe { ffi::audio_queue::at_audio_queue_stop(self.raw.cast(), immediate) };
         status_to_result("AudioQueueStop", status)
     }
 
+    /// Wraps `AudioQueueReset`.
     pub fn reset(&self) -> Result<()> {
         let status = unsafe { ffi::audio_queue::at_audio_queue_reset(self.raw.cast()) };
         status_to_result("AudioQueueReset", status)
     }
 
+    /// Wraps `AudioQueueClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())
@@ -162,10 +181,12 @@ impl Drop for AudioQueue {
 }
 
 impl AudioQueueBufferHandle {
+    /// Returns the wrapped `AudioQueueBufferRef`.
     pub fn as_raw(&self) -> AudioQueueBufferRef {
         self.raw
     }
 
+    /// Reads `mAudioDataBytesCapacity` from the wrapped `AudioQueueBufferRef`.
     pub fn audio_data_bytes_capacity(&self) -> u32 {
         unsafe { (*self.raw).mAudioDataBytesCapacity }
     }

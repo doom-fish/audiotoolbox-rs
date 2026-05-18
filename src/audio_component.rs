@@ -7,25 +7,30 @@ use crate::{
 use std::{mem::MaybeUninit, ptr::NonNull};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Wrapper around an AudioToolbox.framework `AudioComponent`.
 pub struct AudioComponent(NonNull<std::ffi::c_void>);
 
 #[derive(Debug, Clone)]
+/// Iterator over components returned by `AudioComponentFindNext`.
 pub struct AudioComponentIter {
     previous: Option<AudioComponent>,
     description: AudioComponentDescription,
 }
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioComponentInstance`.
 pub struct AudioComponentInstance {
     handle: *mut std::ffi::c_void,
     raw: AudioComponentInstanceRef,
 }
 
 impl AudioComponent {
+    /// Wraps `AudioComponentCount`.
     pub fn count(description: AudioComponentDescription) -> u32 {
         unsafe { ffi::audio_component::at_audio_component_count(std::ptr::from_ref(&description)) }
     }
 
+    /// Wraps `AudioComponentFindNext`.
     pub fn find_next(
         previous: Option<Self>,
         description: AudioComponentDescription,
@@ -42,6 +47,7 @@ impl AudioComponent {
         Some(Self(raw))
     }
 
+    /// Returns an iterator that walks `AudioComponentFindNext`.
     pub fn iter(description: AudioComponentDescription) -> AudioComponentIter {
         AudioComponentIter {
             previous: None,
@@ -49,10 +55,12 @@ impl AudioComponent {
         }
     }
 
+    /// Returns the wrapped `AudioComponentRef`.
     pub fn as_raw(&self) -> AudioComponentRef {
         self.0.as_ptr()
     }
 
+    /// Wraps `AudioComponentCopyName`.
     pub fn copy_name(&self) -> Result<String> {
         let mut status = 0;
         let ptr = unsafe {
@@ -62,6 +70,7 @@ impl AudioComponent {
         string_from_owned_ptr("AudioComponentCopyName", ptr)
     }
 
+    /// Wraps `AudioComponentGetDescription`.
     pub fn description(&self) -> Result<AudioComponentDescription> {
         let mut description = MaybeUninit::uninit();
         let status = unsafe {
@@ -74,6 +83,7 @@ impl AudioComponent {
         Ok(unsafe { description.assume_init() })
     }
 
+    /// Wraps `AudioComponentGetVersion`.
     pub fn version(&self) -> Result<u32> {
         let mut version = 0_u32;
         let status = unsafe {
@@ -83,6 +93,7 @@ impl AudioComponent {
         Ok(version)
     }
 
+    /// Wraps `AudioComponentCopyConfigurationInfo`.
     pub fn copy_configuration_info_raw(&self) -> Result<CFDictionaryRef> {
         let mut configuration_info = std::ptr::null();
         let status = unsafe {
@@ -95,6 +106,7 @@ impl AudioComponent {
         Ok(configuration_info)
     }
 
+    /// Wraps `AudioComponentValidate`.
     pub fn validate_raw(
         &self,
         validation_parameters: Option<CFDictionaryRef>,
@@ -111,6 +123,9 @@ impl AudioComponent {
         Ok(validation_result)
     }
 
+    /// Wraps `AudioComponentInstanceNew`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_instance(&self) -> Result<AudioComponentInstance> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -140,10 +155,12 @@ impl Iterator for AudioComponentIter {
 }
 
 impl AudioComponentInstance {
+    /// Returns the wrapped `AudioComponentInstanceRef`.
     pub fn as_raw(&self) -> AudioComponentInstanceRef {
         self.raw
     }
 
+    /// Wraps `AudioComponentInstanceGetComponent`.
     pub fn component(&self) -> Result<AudioComponent> {
         let handle = unsafe {
             ffi::audio_component::at_audio_component_instance_get_component(self.raw.cast())
@@ -159,12 +176,14 @@ impl AudioComponentInstance {
         Ok(AudioComponent(raw))
     }
 
+    /// Wraps `AudioComponentInstanceCanDo`.
     pub fn can_do(&self, selector_id: i16) -> bool {
         unsafe {
             ffi::audio_component::at_audio_component_instance_can_do(self.raw, selector_id) != 0
         }
     }
 
+    /// Wraps `AudioComponentInstanceDispose`.
     pub fn dispose(mut self) -> Result<()> {
         self.release();
         Ok(())

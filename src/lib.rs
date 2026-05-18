@@ -48,6 +48,7 @@ mod music;
 mod types;
 
 #[cfg(feature = "raw-ffi")]
+/// Bindings for the `AudioToolbox` portion of AudioToolbox.framework.
 pub mod raw_ffi;
 
 pub use apple_cf;

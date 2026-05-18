@@ -14,6 +14,7 @@ use crate::{
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 #[derive(Debug, Clone, Copy)]
+/// Input buffer description used with `AudioConverterFillComplexBuffer`.
 pub struct AudioConversionInput<'a> {
     pub data: &'a [u8],
     pub packet_count: u32,
@@ -22,6 +23,7 @@ pub struct AudioConversionInput<'a> {
 }
 
 #[derive(Debug, Clone)]
+/// Output buffer returned by `AudioConverterFillComplexBuffer`.
 pub struct AudioConversionOutput {
     pub data: Vec<u8>,
     pub packet_count: u32,
@@ -29,18 +31,21 @@ pub struct AudioConversionOutput {
 }
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioConverterRef`.
 pub struct AudioConverter {
     handle: *mut std::ffi::c_void,
     raw: AudioConverterRef,
 }
 
 #[derive(Debug, Clone, Copy)]
+/// Borrowed wrapper around an AudioToolbox.framework `AudioConverterRef`.
 pub struct BorrowedAudioConverter<'a> {
     raw: AudioConverterRef,
     _marker: PhantomData<&'a ()>,
 }
 
 impl BorrowedAudioConverter<'_> {
+    /// Wraps an existing `AudioConverterRef` without changing ownership.
     pub(crate) const fn new(raw: AudioConverterRef) -> Self {
         Self {
             raw,
@@ -48,12 +53,16 @@ impl BorrowedAudioConverter<'_> {
         }
     }
 
+    /// Returns the wrapped `AudioConverterRef`.
     pub fn as_raw(&self) -> AudioConverterRef {
         self.raw
     }
 }
 
 impl AudioConverter {
+    /// Wraps `AudioConverterNew`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(
         source_format: &AudioStreamBasicDescription,
         destination_format: &AudioStreamBasicDescription,
@@ -78,6 +87,9 @@ impl AudioConverter {
         Ok(Self { handle, raw })
     }
 
+    /// Wraps `AudioConverterNewSpecific`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_specific(
         source_format: &AudioStreamBasicDescription,
         destination_format: &AudioStreamBasicDescription,
@@ -116,10 +128,12 @@ impl AudioConverter {
         Ok(Self { handle, raw })
     }
 
+    /// Returns the wrapped `AudioConverterRef`.
     pub fn as_raw(&self) -> AudioConverterRef {
         self.raw
     }
 
+    /// Wraps `AudioConverterClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())
@@ -137,12 +151,14 @@ impl AudioConverter {
 macro_rules! impl_converter_methods {
     ($ty:ty) => {
         impl $ty {
+            /// Wraps `AudioConverterReset`.
             pub fn reset(&self) -> Result<()> {
                 let status =
                     unsafe { ffi::audio_converter::at_audio_converter_reset(self.raw.cast()) };
                 status_to_result("AudioConverterReset", status)
             }
 
+            /// Wraps `AudioConverterGetPropertyInfo`.
             pub fn property_info(
                 &self,
                 property_id: AudioConverterPropertyId,
@@ -161,6 +177,7 @@ macro_rules! impl_converter_methods {
                 Ok((size, writable != 0))
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn current_input_stream_description(&self) -> Result<AudioStreamBasicDescription> {
                 get_property_typed(
                     self.raw,
@@ -169,6 +186,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn current_output_stream_description(&self) -> Result<AudioStreamBasicDescription> {
                 get_property_typed(
                     self.raw,
@@ -177,6 +195,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn encode_bit_rate(&self) -> Result<u32> {
                 get_property_typed(
                     self.raw,
@@ -185,6 +204,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterSetProperty`.
             pub fn set_encode_bit_rate(&self, bits_per_second: u32) -> Result<()> {
                 set_property_typed(
                     self.raw,
@@ -194,6 +214,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn maximum_output_packet_size(&self) -> Result<u32> {
                 get_property_typed(
                     self.raw,
@@ -202,6 +223,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn applicable_encode_bit_rates(&self) -> Result<Vec<AudioValueRange>> {
                 get_property_array(
                     self.raw,
@@ -210,6 +232,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn applicable_encode_sample_rates(&self) -> Result<Vec<AudioValueRange>> {
                 get_property_array(
                     self.raw,
@@ -218,6 +241,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn prime_info(&self) -> Result<AudioConverterPrimeInfo> {
                 get_property_typed(
                     self.raw,
@@ -226,6 +250,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterSetProperty`.
             pub fn set_prime_info(&self, prime_info: &AudioConverterPrimeInfo) -> Result<()> {
                 set_property_typed(
                     self.raw,
@@ -235,6 +260,7 @@ macro_rules! impl_converter_methods {
                 )
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn calculate_input_buffer_size(&self, output_byte_size: u32) -> Result<u32> {
                 let mut byte_size = output_byte_size;
                 let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
@@ -253,6 +279,7 @@ macro_rules! impl_converter_methods {
                 Ok(byte_size)
             }
 
+            /// Wraps `AudioConverterGetProperty`.
             pub fn calculate_output_buffer_size(&self, input_byte_size: u32) -> Result<u32> {
                 let mut byte_size = input_byte_size;
                 let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
@@ -271,6 +298,7 @@ macro_rules! impl_converter_methods {
                 Ok(byte_size)
             }
 
+            /// Wraps `AudioConverterConvertBuffer`.
             pub fn convert_buffer(
                 &self,
                 input: &[u8],
@@ -298,6 +326,7 @@ macro_rules! impl_converter_methods {
                 Ok(output)
             }
 
+            /// Wraps `AudioConverterConvertComplexBuffer`.
             pub fn convert_complex_buffer(
                 &self,
                 number_pcm_frames: u32,
@@ -315,6 +344,7 @@ macro_rules! impl_converter_methods {
                 status_to_result("AudioConverterConvertComplexBuffer", status)
             }
 
+            /// Wraps `AudioConverterFillComplexBuffer`.
             pub fn fill_complex_buffer_once(
                 &self,
                 input: AudioConversionInput<'_>,

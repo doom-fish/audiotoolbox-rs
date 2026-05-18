@@ -8,11 +8,13 @@ use crate::{
 use std::{fs::OpenOptions, mem::MaybeUninit, os::fd::IntoRawFd, path::Path};
 
 #[derive(Debug)]
+/// Wraps `AudioFileComponent`.
 pub struct AudioFileComponent {
     handle: *mut std::ffi::c_void,
 }
 
 impl AudioFileComponent {
+    /// Wraps `AudioFileComponentNew`.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status =
@@ -21,12 +23,14 @@ impl AudioFileComponent {
         Self::from_handle(handle, "AudioFileComponentNew")
     }
 
+    /// Wraps `AudioFileComponentOpen`.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let component = Self::new()?;
         component.open_with_permissions(path, AUDIO_FILE_READ_PERMISSION)?;
         Ok(component)
     }
 
+    /// Wraps `AudioFileComponentOpenURL`.
     pub fn open_with_permissions(
         &self,
         path: impl AsRef<Path>,
@@ -50,12 +54,14 @@ impl AudioFileComponent {
         status_to_result("AudioFileComponentOpenURL", status)
     }
 
+    /// Wraps `AudioFileComponentCloseFile`.
     pub fn close_file(&self) -> Result<()> {
         let status =
             unsafe { ffi::audio_file_component::at_audio_file_component_close_file(self.handle) };
         status_to_result("AudioFileComponentCloseFile", status)
     }
 
+    /// Wraps `AudioFileComponentGetPropertyInfo`.
     pub fn property_info(&self, property_id: AudioFilePropertyId) -> Result<PropertyInfo> {
         let mut data_size = 0_u32;
         let mut writable = 0_u32;
@@ -74,6 +80,7 @@ impl AudioFileComponent {
         })
     }
 
+    /// Wraps `AudioFileComponentGetProperty`.
     pub fn data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_DATA_FORMAT,
@@ -81,6 +88,7 @@ impl AudioFileComponent {
         )
     }
 
+    /// Wraps `AudioFileComponentGetGlobalInfo`.
     pub fn can_read(&self, file_type: AudioFileTypeId) -> Result<bool> {
         let mut can_read = 0_u32;
         let status = unsafe {
@@ -94,6 +102,7 @@ impl AudioFileComponent {
         Ok(can_read != 0)
     }
 
+    /// Wraps `AudioFileComponentGetGlobalInfo`.
     pub fn file_type_name(&self, file_type: AudioFileTypeId) -> Result<String> {
         let mut status = 0;
         let ptr = unsafe {

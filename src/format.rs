@@ -17,9 +17,11 @@ use crate::{
 };
 use std::{ffi::c_void, mem::MaybeUninit};
 
+/// Namespace wrapper for `AudioFormatGetProperty` and related AudioToolbox.framework APIs.
 pub struct AudioFormat;
 
 impl AudioFormat {
+    /// Wraps `AudioFormatGetProperty`.
     pub fn format_info(
         mut description: AudioStreamBasicDescription,
     ) -> Result<AudioStreamBasicDescription> {
@@ -41,6 +43,7 @@ impl AudioFormat {
         Ok(description)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn format_is_vbr(description: &AudioStreamBasicDescription) -> Result<bool> {
         Ok(get_u32_with_specifier(
             AUDIO_FORMAT_PROPERTY_FORMAT_IS_VBR,
@@ -49,6 +52,7 @@ impl AudioFormat {
         )? != 0)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn format_is_externally_framed(description: &AudioStreamBasicDescription) -> Result<bool> {
         Ok(get_u32_with_specifier(
             AUDIO_FORMAT_PROPERTY_FORMAT_IS_EXTERNALLY_FRAMED,
@@ -57,6 +61,7 @@ impl AudioFormat {
         )? != 0)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn format_employs_dependent_packets(
         description: &AudioStreamBasicDescription,
     ) -> Result<bool> {
@@ -67,6 +72,7 @@ impl AudioFormat {
         )? != 0)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn encode_format_ids() -> Result<Vec<AudioFormatId>> {
         get_array::<AudioFormatId>(
             AUDIO_FORMAT_PROPERTY_ENCODE_FORMAT_IDS,
@@ -76,6 +82,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn decode_format_ids() -> Result<Vec<AudioFormatId>> {
         get_array::<AudioFormatId>(
             AUDIO_FORMAT_PROPERTY_DECODE_FORMAT_IDS,
@@ -85,6 +92,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn encoders(format_id: AudioFormatId) -> Result<Vec<AudioClassDescription>> {
         get_array::<AudioClassDescription>(
             AUDIO_FORMAT_PROPERTY_ENCODERS,
@@ -94,6 +102,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn decoders(format_id: AudioFormatId) -> Result<Vec<AudioClassDescription>> {
         get_array::<AudioClassDescription>(
             AUDIO_FORMAT_PROPERTY_DECODERS,
@@ -103,6 +112,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn available_encode_bit_rates(format_id: AudioFormatId) -> Result<Vec<AudioValueRange>> {
         get_array::<AudioValueRange>(
             AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_BIT_RATES,
@@ -112,6 +122,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn available_encode_sample_rates(format_id: AudioFormatId) -> Result<Vec<AudioValueRange>> {
         get_array::<AudioValueRange>(
             AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_SAMPLE_RATES,
@@ -121,6 +132,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetPropertyInfo`.
     pub fn property_info<T>(
         property_id: AudioFormatPropertyId,
         specifier: Option<&T>,
@@ -145,6 +157,7 @@ impl AudioFormat {
         Ok(size)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
         get_array::<AudioFormatListItem>(
             AUDIO_FORMAT_PROPERTY_FORMAT_LIST,
@@ -155,6 +168,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn output_format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
         get_array::<AudioFormatListItem>(
             AUDIO_FORMAT_PROPERTY_OUTPUT_FORMAT_LIST,
@@ -165,6 +179,7 @@ impl AudioFormat {
         )
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn first_playable_format_from_list(items: &[AudioFormatListItem]) -> Result<u32> {
         if items.is_empty() {
             return Err(crate::AudioToolboxError::message(
@@ -192,6 +207,7 @@ impl AudioFormat {
         Ok(index)
     }
 
+    /// Wraps `AudioFormatGetProperty`.
     pub fn balance_fade(mut balance_fade: AudioBalanceFade) -> Result<AudioBalanceFade> {
         let mut size = u32::try_from(std::mem::size_of::<AudioBalanceFade>())
             .expect("AudioBalanceFade fits in u32");
@@ -209,6 +225,7 @@ impl AudioFormat {
         Ok(balance_fade)
     }
 
+    /// Wraps `AudioFormatPanningMatrixSize`.
     pub fn panning_matrix_size(info: &AudioPanningInfo) -> Result<u32> {
         Self::property_info(crate::AUDIO_FORMAT_PROPERTY_PANNING_MATRIX, Some(info))
     }
@@ -286,6 +303,7 @@ fn get_array<T: Copy>(
     Ok(values)
 }
 
+/// Wraps `AudioFormatIsPrintableFourcc`.
 pub fn is_printable_fourcc(value: u32) -> bool {
     value
         .to_be_bytes()
@@ -293,6 +311,7 @@ pub fn is_printable_fourcc(value: u32) -> bool {
         .all(|byte| byte.is_ascii_graphic() || *byte == b' ')
 }
 
+/// Wraps `AudioFormatFourccToString`.
 pub fn fourcc_to_string(value: u32) -> String {
     value
         .to_be_bytes()
@@ -308,6 +327,7 @@ pub fn fourcc_to_string(value: u32) -> String {
 }
 
 impl AudioComponentDescription {
+    /// Wraps `AudioComponentDescriptionNew`.
     pub const fn new(
         component_type: u32,
         component_sub_type: u32,
@@ -322,10 +342,12 @@ impl AudioComponentDescription {
         }
     }
 
+    /// Wraps `AudioComponentDescriptionWildcard`.
     pub const fn wildcard() -> Self {
         Self::new(0, 0, 0)
     }
 
+    /// Wraps `AudioComponentDescriptionApple`.
     pub const fn apple(component_type: u32, component_sub_type: u32) -> Self {
         Self::new(
             component_type,
@@ -336,6 +358,7 @@ impl AudioComponentDescription {
 }
 
 impl AudioStreamBasicDescription {
+    /// Wraps `AudioStreamBasicDescriptionLinearPCMF32`.
     pub const fn linear_pcm_f32(sample_rate: f64, channels: u32, interleaved: bool) -> Self {
         let bytes_per_channel = 4;
         let bytes_per_frame = if interleaved {
@@ -364,6 +387,7 @@ impl AudioStreamBasicDescription {
         }
     }
 
+    /// Wraps `AudioStreamBasicDescriptionLinearPCMI16`.
     pub const fn linear_pcm_i16(sample_rate: f64, channels: u32, interleaved: bool) -> Self {
         let bytes_per_channel = 2;
         let bytes_per_frame = if interleaved {
@@ -392,38 +416,47 @@ impl AudioStreamBasicDescription {
         }
     }
 
+    /// Wraps `AudioStreamBasicDescriptionChannelCount`.
     pub const fn channel_count(self) -> u32 {
         self.mChannelsPerFrame
     }
 
+    /// Wraps `AudioStreamBasicDescriptionBytesPerFrame`.
     pub const fn bytes_per_frame(self) -> u32 {
         self.mBytesPerFrame
     }
 
+    /// Wraps `AudioStreamBasicDescriptionBytesPerPacket`.
     pub const fn bytes_per_packet(self) -> u32 {
         self.mBytesPerPacket
     }
 
+    /// Wraps `AudioStreamBasicDescriptionFramesPerPacket`.
     pub const fn frames_per_packet(self) -> u32 {
         self.mFramesPerPacket
     }
 
+    /// Wraps `AudioStreamBasicDescriptionBitsPerChannel`.
     pub const fn bits_per_channel(self) -> u32 {
         self.mBitsPerChannel
     }
 
+    /// Wraps `AudioStreamBasicDescriptionIsLinearPCM`.
     pub const fn is_linear_pcm(self) -> bool {
         self.mFormatID == AUDIO_FORMAT_LINEAR_PCM
     }
 
+    /// Wraps `AudioStreamBasicDescriptionIsInterleaved`.
     pub const fn is_interleaved(self) -> bool {
         (self.mFormatFlags & AUDIO_FORMAT_FLAG_IS_NON_INTERLEAVED) == 0
     }
 
+    /// Wraps `AudioStreamBasicDescriptionUsesPacketDescriptions`.
     pub const fn uses_packet_descriptions(self) -> bool {
         self.mBytesPerPacket == 0 || self.mFramesPerPacket == 0
     }
 
+    /// Wraps `AudioStreamBasicDescriptionInterleavedBytesForFrames`.
     pub const fn interleaved_bytes_for_frames(self, frames: u32) -> Option<usize> {
         if self.mBytesPerFrame == 0 {
             None
@@ -432,6 +465,7 @@ impl AudioStreamBasicDescription {
         }
     }
 
+    /// Wraps `AudioStreamBasicDescriptionLinearPCMFlags`.
     pub const fn linear_pcm_flags(self) -> AudioFormatFlags {
         self.mFormatFlags
     }

@@ -1,9 +1,11 @@
 use crate::OSStatus;
 use std::{borrow::Cow, error::Error, fmt};
 
+/// Result alias used by AudioToolbox.framework wrappers in this crate.
 pub type Result<T> = std::result::Result<T, AudioToolboxError>;
 
 #[derive(Debug, Clone)]
+/// Error wrapper for `OSStatus` values returned by AudioToolbox.framework.
 pub struct AudioToolboxError {
     operation: &'static str,
     status: Option<OSStatus>,
@@ -11,6 +13,7 @@ pub struct AudioToolboxError {
 }
 
 impl AudioToolboxError {
+    /// Wraps `AudioToolboxErrorFromStatus`.
     pub(crate) fn from_status(operation: &'static str, status: OSStatus) -> Self {
         Self {
             operation,
@@ -19,6 +22,7 @@ impl AudioToolboxError {
         }
     }
 
+    /// Wraps `AudioToolboxErrorMessage`.
     pub(crate) fn message(operation: &'static str, message: impl Into<Cow<'static, str>>) -> Self {
         Self {
             operation,
@@ -27,10 +31,12 @@ impl AudioToolboxError {
         }
     }
 
+    /// Wraps `AudioToolboxErrorOperation`.
     pub fn operation(&self) -> &'static str {
         self.operation
     }
 
+    /// Wraps `AudioToolboxErrorStatus`.
     pub fn status(&self) -> Option<OSStatus> {
         self.status
     }

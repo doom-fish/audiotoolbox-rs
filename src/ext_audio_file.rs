@@ -8,6 +8,7 @@ use crate::{
 use std::{mem::MaybeUninit, path::Path};
 
 #[derive(Debug)]
+/// Interleaved buffer helper used with `ExtAudioFileRead` and `ExtAudioFileWrite`.
 pub struct InterleavedAudioBuffer {
     channels: u32,
     bytes_per_frame: u32,
@@ -16,6 +17,7 @@ pub struct InterleavedAudioBuffer {
 }
 
 impl InterleavedAudioBuffer {
+    /// Wraps `InterleavedAudioBufferNew`.
     pub fn new(channels: u32, bytes_per_frame: u32, frame_capacity: u32) -> Result<Self> {
         let byte_capacity = (bytes_per_frame as usize)
             .checked_mul(frame_capacity as usize)
@@ -47,35 +49,43 @@ impl InterleavedAudioBuffer {
         })
     }
 
+    /// Wraps `InterleavedAudioBufferChannels`.
     pub fn channels(&self) -> u32 {
         self.channels
     }
 
+    /// Wraps `InterleavedAudioBufferBytesPerFrame`.
     pub fn bytes_per_frame(&self) -> u32 {
         self.bytes_per_frame
     }
 
+    /// Wraps `InterleavedAudioBufferFrameCapacity`.
     pub fn frame_capacity(&self) -> u32 {
         (self.storage.len() as u32) / self.bytes_per_frame.max(1)
     }
 
+    /// Wraps `InterleavedAudioBufferValidByteSize`.
     pub fn valid_byte_size(&self) -> u32 {
         self.raw.mBuffers[0].mDataByteSize
     }
 
+    /// Wraps `InterleavedAudioBufferValidFrames`.
     pub fn valid_frames(&self) -> u32 {
         self.valid_byte_size() / self.bytes_per_frame.max(1)
     }
 
+    /// Wraps `InterleavedAudioBufferAsBytes`.
     pub fn as_bytes(&self) -> &[u8] {
         &self.storage[..self.valid_byte_size() as usize]
     }
 
+    /// Wraps `InterleavedAudioBufferAsMutBytes`.
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
         let len = self.valid_byte_size() as usize;
         &mut self.storage[..len]
     }
 
+    /// Wraps `InterleavedAudioBufferSetValidByteSize`.
     pub fn set_valid_byte_size(&mut self, byte_size: u32) {
         self.raw.mBuffers[0].mDataByteSize = byte_size.min(self.storage.len() as u32);
     }
@@ -92,12 +102,16 @@ impl InterleavedAudioBuffer {
 }
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `ExtAudioFileRef`.
 pub struct ExtAudioFile {
     handle: *mut std::ffi::c_void,
     raw: ExtAudioFileRef,
 }
 
 impl ExtAudioFile {
+    /// Wraps `ExtAudioFileOpenURL`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
@@ -115,6 +129,9 @@ impl ExtAudioFile {
         Ok(Self { handle, raw })
     }
 
+    /// Wraps `ExtAudioFileCreateWithURL`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn create(
         path: impl AsRef<Path>,
         file_type: crate::AudioFileTypeId,
@@ -144,6 +161,9 @@ impl ExtAudioFile {
         Ok(Self { handle, raw })
     }
 
+    /// Wraps `ExtAudioFileCreateErasing`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn create_erasing(
         path: impl AsRef<Path>,
         file_type: crate::AudioFileTypeId,
@@ -152,15 +172,18 @@ impl ExtAudioFile {
         Self::create(path, file_type, format, AUDIO_FILE_FLAGS_ERASE_FILE)
     }
 
+    /// Returns the wrapped `ExtAudioFileRef`.
     pub fn as_raw(&self) -> ExtAudioFileRef {
         self.raw
     }
 
+    /// Wraps `ExtAudioFileClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())
     }
 
+    /// Wraps `ExtAudioFileGetProperty`.
     pub fn file_data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT,
@@ -168,6 +191,7 @@ impl ExtAudioFile {
         )
     }
 
+    /// Wraps `ExtAudioFileGetProperty`.
     pub fn client_data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
@@ -175,6 +199,7 @@ impl ExtAudioFile {
         )
     }
 
+    /// Wraps `ExtAudioFileSetProperty`.
     pub fn set_client_data_format(&self, format: &AudioStreamBasicDescription) -> Result<()> {
         self.set_property_typed(
             EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
@@ -183,6 +208,7 @@ impl ExtAudioFile {
         )
     }
 
+    /// Wraps `ExtAudioFileGetProperty`.
     pub fn file_length_frames(&self) -> Result<i64> {
         self.get_property_typed(
             EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
@@ -190,6 +216,7 @@ impl ExtAudioFile {
         )
     }
 
+    /// Wraps `ExtAudioFileGetProperty`.
     pub fn audio_converter(&self) -> Result<BorrowedAudioConverter<'_>> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -206,6 +233,7 @@ impl ExtAudioFile {
         Ok(BorrowedAudioConverter::new(raw))
     }
 
+    /// Wraps `ExtAudioFileRead`.
     pub fn read_interleaved(
         &self,
         buffer: &mut InterleavedAudioBuffer,
@@ -220,6 +248,7 @@ impl ExtAudioFile {
         Ok(io_number_frames)
     }
 
+    /// Wraps `ExtAudioFileWrite`.
     pub fn write_interleaved(&self, frames: u32, buffer: &InterleavedAudioBuffer) -> Result<()> {
         let status = unsafe {
             ffi::ext_audio_file::at_ext_audio_file_write(self.raw.cast(), frames, buffer.raw_ptr())

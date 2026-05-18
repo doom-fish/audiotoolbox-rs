@@ -11,6 +11,7 @@ use crate::{
 use std::{ffi::c_void, mem::MaybeUninit, path::Path};
 
 #[derive(Debug, Clone)]
+/// Rust-owned packet payload returned by `AudioFileReadPacketData` and `AudioFileReadPackets`.
 pub struct PacketData {
     pub data: Vec<u8>,
     pub packet_count: u32,
@@ -18,22 +19,30 @@ pub struct PacketData {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Rust representation of `AudioFileGetPropertyInfo` results.
 pub struct PropertyInfo {
     pub data_size: u32,
     pub writable: bool,
 }
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioFileID`.
 pub struct AudioFile {
     handle: *mut std::ffi::c_void,
     raw: AudioFileId,
 }
 
 impl AudioFile {
+    /// Wraps `AudioFileOpenURL`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_with_permissions(path, AUDIO_FILE_READ_PERMISSION, 0)
     }
 
+    /// Wraps `AudioFileOpenURL`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn open_with_permissions(
         path: impl AsRef<Path>,
         permissions: AudioFilePermissions,
@@ -64,6 +73,9 @@ impl AudioFile {
         Ok(Self { handle, raw })
     }
 
+    /// Wraps `AudioFileCreateWithURL`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn create(
         path: impl AsRef<Path>,
         file_type: AudioFileTypeId,
@@ -94,15 +106,18 @@ impl AudioFile {
         Ok(Self { handle, raw })
     }
 
+    /// Returns the wrapped `AudioFileID`.
     pub fn as_raw(&self) -> AudioFileId {
         self.raw
     }
 
+    /// Wraps `AudioFileClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())
     }
 
+    /// Wraps `AudioFileGetPropertyInfo`.
     pub fn property_info(&self, property_id: AudioFilePropertyId) -> Result<PropertyInfo> {
         let mut data_size = 0_u32;
         let mut writable = 0_u32;
@@ -121,6 +136,7 @@ impl AudioFile {
         })
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_DATA_FORMAT,
@@ -128,6 +144,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn magic_cookie(&self) -> Result<Vec<u8>> {
         self.get_property_bytes(
             AUDIO_FILE_PROPERTY_MAGIC_COOKIE_DATA,
@@ -135,6 +152,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn packet_count(&self) -> Result<i64> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_AUDIO_DATA_PACKET_COUNT,
@@ -142,6 +160,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn maximum_packet_size(&self) -> Result<u32> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_MAXIMUM_PACKET_SIZE,
@@ -149,6 +168,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn estimated_duration(&self) -> Result<f64> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_ESTIMATED_DURATION,
@@ -156,6 +176,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn audio_data_byte_count(&self) -> Result<i64> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_AUDIO_DATA_BYTE_COUNT,
@@ -163,6 +184,7 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn data_offset(&self) -> Result<i64> {
         self.get_property_typed(
             AUDIO_FILE_PROPERTY_DATA_OFFSET,
@@ -170,11 +192,13 @@ impl AudioFile {
         )
     }
 
+    /// Wraps `AudioFileOptimize`.
     pub fn optimize(&self) -> Result<()> {
         let status = unsafe { ffi::audio_file::at_audio_file_optimize(self.raw) };
         status_to_result("AudioFileOptimize", status)
     }
 
+    /// Wraps `AudioFileReadBytes`.
     pub fn read_bytes(
         &self,
         starting_byte: i64,
@@ -197,6 +221,7 @@ impl AudioFile {
         Ok(bytes)
     }
 
+    /// Wraps `AudioFileWriteBytes`.
     pub fn write_bytes(&self, starting_byte: i64, data: &[u8], use_cache: bool) -> Result<u32> {
         let mut actual_byte_count = u32::try_from(data.len()).map_err(|_| {
             AudioToolboxError::message(
@@ -217,6 +242,7 @@ impl AudioFile {
         Ok(actual_byte_count)
     }
 
+    /// Wraps `AudioFileCountUserData`.
     pub fn count_user_data(&self, user_data_id: u32) -> Result<u32> {
         let mut count = 0_u32;
         let status = unsafe {
@@ -226,6 +252,7 @@ impl AudioFile {
         Ok(count)
     }
 
+    /// Wraps `AudioFileGetUserDataSize`.
     pub fn user_data_size(&self, user_data_id: u32, index: u32) -> Result<u32> {
         let mut size = 0_u32;
         let status = unsafe {
@@ -240,6 +267,7 @@ impl AudioFile {
         Ok(size)
     }
 
+    /// Wraps `AudioFileGetUserDataSize64`.
     pub fn user_data_size64(&self, user_data_id: u32, index: u32) -> Result<u64> {
         let mut size = 0_u64;
         let status = unsafe {
@@ -254,6 +282,7 @@ impl AudioFile {
         Ok(size)
     }
 
+    /// Wraps `AudioFileGetUserData`.
     pub fn user_data(&self, user_data_id: u32, index: u32) -> Result<Vec<u8>> {
         let mut size = self.user_data_size(user_data_id, index)?;
         let mut bytes = vec![0_u8; size as usize];
@@ -271,6 +300,7 @@ impl AudioFile {
         Ok(bytes)
     }
 
+    /// Wraps `AudioFileGetUserDataAtOffset`.
     pub fn user_data_at_offset(
         &self,
         user_data_id: u32,
@@ -295,6 +325,7 @@ impl AudioFile {
         Ok(bytes)
     }
 
+    /// Wraps `AudioFileSetUserData`.
     pub fn set_user_data(&self, user_data_id: u32, index: u32, data: &[u8]) -> Result<()> {
         let size = u32::try_from(data.len()).map_err(|_| {
             AudioToolboxError::message(
@@ -314,6 +345,7 @@ impl AudioFile {
         status_to_result("AudioFileSetUserData", status)
     }
 
+    /// Wraps `AudioFileRemoveUserData`.
     pub fn remove_user_data(&self, user_data_id: u32, index: u32) -> Result<()> {
         let status = unsafe {
             ffi::audio_file::at_audio_file_remove_user_data(self.raw, user_data_id, index)
@@ -321,6 +353,7 @@ impl AudioFile {
         status_to_result("AudioFileRemoveUserData", status)
     }
 
+    /// Wraps `AudioFileGetGlobalInfoSize`.
     pub fn global_info_size<T>(
         property_id: AudioFilePropertyId,
         specifier: Option<&T>,
@@ -345,6 +378,7 @@ impl AudioFile {
         Ok(size)
     }
 
+    /// Wraps `AudioFileGetGlobalInfo`.
     pub fn global_info_bytes<T>(
         property_id: AudioFilePropertyId,
         specifier: Option<&T>,
@@ -372,6 +406,7 @@ impl AudioFile {
         Ok(bytes)
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn get_property_bytes(
         &self,
         property_id: AudioFilePropertyId,
@@ -393,6 +428,7 @@ impl AudioFile {
         Ok(bytes)
     }
 
+    /// Wraps `AudioFileSetProperty`.
     pub fn set_property_bytes(
         &self,
         property_id: AudioFilePropertyId,
@@ -413,6 +449,7 @@ impl AudioFile {
         status_to_result(operation, status)
     }
 
+    /// Wraps `AudioFileGetPropertyArray`.
     pub fn get_property_array<T: Copy>(
         &self,
         property_id: AudioFilePropertyId,
@@ -436,6 +473,7 @@ impl AudioFile {
         Ok(values.to_vec())
     }
 
+    /// Wraps `AudioFileSetProperty`.
     pub fn set_property_typed<T: Copy>(
         &self,
         property_id: AudioFilePropertyId,
@@ -454,6 +492,7 @@ impl AudioFile {
         status_to_result(operation, status)
     }
 
+    /// Wraps `AudioFileReadPacketData`.
     pub fn read_packet_data(
         &self,
         starting_packet: i64,
@@ -463,6 +502,7 @@ impl AudioFile {
         self.read_packet_data_inner(starting_packet, packet_count, use_cache, true)
     }
 
+    /// Wraps `AudioFileReadPackets`.
     pub fn read_packets(
         &self,
         starting_packet: i64,
@@ -472,6 +512,7 @@ impl AudioFile {
         self.read_packet_data_inner(starting_packet, packet_count, use_cache, false)
     }
 
+    /// Wraps `AudioFileWritePackets`.
     pub fn write_packets(
         &self,
         starting_packet: i64,
@@ -504,6 +545,7 @@ impl AudioFile {
         Ok(io_num_packets)
     }
 
+    /// Wraps `AudioFileGetProperty`.
     pub fn get_property_typed<T: Copy>(
         &self,
         property_id: AudioFilePropertyId,

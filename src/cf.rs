@@ -32,13 +32,20 @@ unsafe extern "C" {
 }
 
 #[derive(Debug)]
+/// Wraps `OwnedCFType`.
 pub(crate) struct OwnedCFType(NonNull<c_void>);
 
 impl OwnedCFType {
+    /// Wraps `OwnedCFTypeAsPtr`.
     pub(crate) fn as_ptr(&self) -> *const c_void {
         self.0.as_ptr().cast_const()
     }
 
+    /// Wraps `OwnedCFTypeFromCreateRule`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `OwnedCFTypeFromCreateRule`.
     pub(crate) unsafe fn from_create_rule(raw: *const c_void) -> Option<Self> {
         NonNull::new(raw.cast_mut()).map(Self)
     }
@@ -57,6 +64,7 @@ impl Drop for OwnedCFType {
     }
 }
 
+/// Wraps `CFURLCreateFromFileSystemRepresentation`.
 pub(crate) fn path_to_url(path: &Path) -> Result<OwnedCFType> {
     let bytes = path.as_os_str().as_bytes();
     let url = unsafe {
@@ -75,6 +83,7 @@ pub(crate) fn path_to_url(path: &Path) -> Result<OwnedCFType> {
     })
 }
 
+/// Wraps `CFStringGetCString`.
 pub(crate) fn cfstring_to_string(cf_string: *const c_void) -> Result<String> {
     if cf_string.is_null() {
         return Err(AudioToolboxError::message(

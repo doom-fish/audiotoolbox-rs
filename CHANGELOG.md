@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4] - 2026-05-18
+
+### Changed
+
+- Added one-line AudioToolbox SDK reference docs across the crate's public surface, including `# Safety` sections for unsafe functions and ownership notes for constructors.
+- Raised measured public-item documentation coverage from 0.1% to 100.0%.
+- Bumped the crate to `0.2.4`.
+
 ## [0.2.3] - 2026-05-17
 
 ### Added

@@ -7,6 +7,7 @@ use std::{
     io::Error,
 };
 
+/// Trait implemented by objects accepted by `CAShow` and `CAShowFile`.
 pub trait AudioToolboxDebugObject {
     fn debug_ptr(&self) -> *mut c_void;
 }
@@ -47,18 +48,22 @@ impl AudioToolboxDebugObject for AudioComponentInstance {
     }
 }
 
+/// Wraps `CAShow`.
 pub fn ca_show(object: &impl AudioToolboxDebugObject) {
     unsafe { ffi::core::CAShow(object.debug_ptr()) };
 }
 
+/// Wraps `CAShowFile` for standard output.
 pub fn ca_show_to_stdout(object: &impl AudioToolboxDebugObject) -> Result<()> {
     ca_show_to_fd(object.debug_ptr(), libc::STDOUT_FILENO, "ca_show_to_stdout")
 }
 
+/// Wraps `CAShowFile` for standard error.
 pub fn ca_show_to_stderr(object: &impl AudioToolboxDebugObject) -> Result<()> {
     ca_show_to_fd(object.debug_ptr(), libc::STDERR_FILENO, "ca_show_to_stderr")
 }
 
+/// Flushes buffered output produced by `CAShowFile`.
 pub fn flush_debug_output() -> Result<()> {
     let rc = unsafe { libc::fflush(std::ptr::null_mut()) };
     if rc == 0 {

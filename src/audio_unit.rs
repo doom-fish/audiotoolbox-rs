@@ -11,12 +11,16 @@ use crate::{
 use std::mem::MaybeUninit;
 
 #[derive(Debug)]
+/// Wraps `AudioUnit`.
 pub struct AudioUnit {
     handle: *mut std::ffi::c_void,
     raw: AudioUnitRef,
 }
 
 impl AudioUnit {
+    /// Wraps `AudioUnitNew`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(component_type: u32, component_sub_type: u32, manufacturer: u32) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -38,6 +42,9 @@ impl AudioUnit {
         Ok(Self { handle, raw })
     }
 
+    /// Wraps `AudioUnitNewApple`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_apple(component_type: u32, component_sub_type: u32) -> Result<Self> {
         Self::new(
             component_type,
@@ -46,30 +53,36 @@ impl AudioUnit {
         )
     }
 
+    /// Returns the wrapped `AudioUnitRef`.
     pub fn as_raw(&self) -> AudioUnitRef {
         self.raw
     }
 
+    /// Wraps `AudioUnitInitialize`.
     pub fn initialize(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_unit_initialize(self.raw.cast()) };
         status_to_result("AudioUnitInitialize", status)
     }
 
+    /// Wraps `AudioUnitUninitialize`.
     pub fn uninitialize(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_unit_uninitialize(self.raw.cast()) };
         status_to_result("AudioUnitUninitialize", status)
     }
 
+    /// Wraps `AudioOutputUnitStart`.
     pub fn start(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_output_unit_start(self.raw.cast()) };
         status_to_result("AudioOutputUnitStart", status)
     }
 
+    /// Wraps `AudioOutputUnitStop`.
     pub fn stop(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_output_unit_stop(self.raw.cast()) };
         status_to_result("AudioOutputUnitStop", status)
     }
 
+    /// Wraps `AudioUnitGetPropertyInfo`.
     pub fn property_info(
         &self,
         property_id: AudioUnitPropertyId,
@@ -92,6 +105,7 @@ impl AudioUnit {
         Ok((data_size, writable != 0))
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn sample_rate(&self, scope: AudioUnitScope, element: AudioUnitElement) -> Result<f64> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_SAMPLE_RATE,
@@ -101,6 +115,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn latency(&self) -> Result<f64> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_LATENCY,
@@ -110,6 +125,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn presentation_latency(&self) -> Result<f64> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_PRESENTATION_LATENCY,
@@ -119,6 +135,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn cpu_load(&self) -> Result<f32> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_CPULOAD,
@@ -128,6 +145,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn last_render_error(&self) -> Result<crate::OSStatus> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_LAST_RENDER_ERROR,
@@ -137,6 +155,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn element_count(&self, scope: AudioUnitScope) -> Result<u32> {
         self.get_property_typed(
             AUDIO_UNIT_PROPERTY_ELEMENT_COUNT,
@@ -146,6 +165,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn stream_format(
         &self,
         scope: AudioUnitScope,
@@ -159,6 +179,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitSetProperty`.
     pub fn set_stream_format(
         &self,
         scope: AudioUnitScope,
@@ -174,6 +195,7 @@ impl AudioUnit {
         )
     }
 
+    /// Wraps `AudioUnitGetParameter`.
     pub fn get_parameter(
         &self,
         parameter_id: AudioUnitParameterId,
@@ -194,6 +216,7 @@ impl AudioUnit {
         Ok(value)
     }
 
+    /// Wraps `AudioUnitSetParameter`.
     pub fn set_parameter(
         &self,
         parameter_id: AudioUnitParameterId,
@@ -215,6 +238,8 @@ impl AudioUnit {
         status_to_result("AudioUnitSetParameter", status)
     }
 
+    /// Wraps `AudioUnitAddPropertyListener`.
+    ///
     /// # Safety
     ///
     /// `user_data` must remain valid for the lifetime of the registered listener.
@@ -235,6 +260,8 @@ impl AudioUnit {
         status_to_result("AudioUnitAddPropertyListener", status)
     }
 
+    /// Wraps `AudioUnitRemovePropertyListenerWithUserData`.
+    ///
     /// # Safety
     ///
     /// `user_data` must match the pointer used when the listener was registered.
@@ -255,6 +282,8 @@ impl AudioUnit {
         status_to_result("AudioUnitRemovePropertyListenerWithUserData", status)
     }
 
+    /// Wraps `AudioUnitAddRenderNotify`.
+    ///
     /// # Safety
     ///
     /// `user_data` must remain valid for as long as the render notify callback can be invoked.
@@ -269,6 +298,8 @@ impl AudioUnit {
         status_to_result("AudioUnitAddRenderNotify", status)
     }
 
+    /// Wraps `AudioUnitRemoveRenderNotify`.
+    ///
     /// # Safety
     ///
     /// `user_data` must match the pointer used when the render notify callback was registered.
@@ -283,6 +314,7 @@ impl AudioUnit {
         status_to_result("AudioUnitRemoveRenderNotify", status)
     }
 
+    /// Wraps `AudioUnitScheduleParameters`.
     pub fn schedule_parameters(&self, events: &[AudioUnitParameterEvent]) -> Result<()> {
         let event_count = u32::try_from(events.len()).map_err(|_| {
             AudioToolboxError::message("AudioUnitScheduleParameters", "too many parameter events")
@@ -297,6 +329,7 @@ impl AudioUnit {
         status_to_result("AudioUnitScheduleParameters", status)
     }
 
+    /// Wraps `AudioUnitRender`.
     pub fn render(
         &self,
         io_action_flags: &mut AudioUnitRenderActionFlags,
@@ -318,11 +351,13 @@ impl AudioUnit {
         status_to_result("AudioUnitRender", status)
     }
 
+    /// Wraps `AudioUnitClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())
     }
 
+    /// Wraps `AudioUnitGetProperty`.
     pub fn get_property_typed<T: Copy>(
         &self,
         property_id: AudioUnitPropertyId,
@@ -346,6 +381,7 @@ impl AudioUnit {
         Ok(unsafe { value.assume_init() })
     }
 
+    /// Wraps `AudioUnitSetProperty`.
     pub fn set_property_typed<T: Copy>(
         &self,
         property_id: AudioUnitPropertyId,

@@ -9,12 +9,16 @@ use crate::{
 use std::mem::MaybeUninit;
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `AudioFileStreamID`.
 pub struct AudioFileStream {
     handle: *mut std::ffi::c_void,
     raw: AudioFileStreamId,
 }
 
 impl AudioFileStream {
+    /// Wraps `AudioFileStreamOpen`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn open(file_type_hint: u32) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
@@ -32,10 +36,12 @@ impl AudioFileStream {
         Ok(Self { handle, raw })
     }
 
+    /// Returns the wrapped `AudioFileStreamID`.
     pub fn as_raw(&self) -> AudioFileStreamId {
         self.raw
     }
 
+    /// Wraps `AudioFileStreamParseBytes`.
     pub fn parse_bytes(&self, data: &[u8], parse_flags: AudioFileStreamParseFlags) -> Result<()> {
         let data_len = u32::try_from(data.len()).map_err(|_| {
             AudioToolboxError::message(
@@ -54,16 +60,19 @@ impl AudioFileStream {
         status_to_result("AudioFileStreamParseBytes", status)
     }
 
+    /// Wraps `AudioFileStreamReadyToProducePackets`.
     pub fn ready_to_produce_packets(&self) -> bool {
         unsafe {
             ffi::audio_file_stream::at_audio_file_stream_ready_to_produce_packets(self.handle) != 0
         }
     }
 
+    /// Wraps `AudioFileStreamPacketCountSeen`.
     pub fn packet_count_seen(&self) -> u64 {
         unsafe { ffi::audio_file_stream::at_audio_file_stream_packet_count_seen(self.handle) }
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn file_format(&self) -> Result<u32> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_FILE_FORMAT,
@@ -71,6 +80,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn data_format(&self) -> Result<AudioStreamBasicDescription> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_DATA_FORMAT,
@@ -78,6 +88,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn maximum_packet_size(&self) -> Result<u32> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE,
@@ -85,6 +96,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn bit_rate(&self) -> Result<u32> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_BIT_RATE,
@@ -92,6 +104,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn audio_data_byte_count(&self) -> Result<i64> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_BYTE_COUNT,
@@ -99,6 +112,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn audio_data_packet_count(&self) -> Result<i64> {
         self.get_property_typed(
             AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_PACKET_COUNT,
@@ -106,6 +120,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetProperty`.
     pub fn magic_cookie(&self) -> Result<Vec<u8>> {
         self.get_property_bytes(
             AUDIO_FILE_STREAM_PROPERTY_MAGIC_COOKIE_DATA,
@@ -113,6 +128,7 @@ impl AudioFileStream {
         )
     }
 
+    /// Wraps `AudioFileStreamGetPropertyInfo`.
     pub fn property_info(&self, property_id: AudioFileStreamPropertyId) -> Result<(u32, bool)> {
         let mut data_size = 0_u32;
         let mut writable = 0_u8;
@@ -128,6 +144,7 @@ impl AudioFileStream {
         Ok((data_size, writable != 0))
     }
 
+    /// Wraps `AudioFileStreamClose`.
     pub fn close(mut self) -> Result<()> {
         self.release();
         Ok(())

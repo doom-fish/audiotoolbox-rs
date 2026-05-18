@@ -5,31 +5,39 @@ use crate::{
 use std::{ffi::c_void, mem::MaybeUninit};
 
 #[derive(Debug)]
+/// Wraps `AVAudioEngine`.
 pub struct AVAudioEngine {
     handle: *mut c_void,
 }
 
 #[derive(Debug)]
+/// Wraps `AVAudioNode`.
 pub struct AVAudioNode {
     handle: *mut c_void,
 }
 
 #[derive(Debug)]
+/// Wraps `AVAudioFormat`.
 pub struct AVAudioFormat {
     handle: *mut c_void,
 }
 
 #[derive(Debug)]
+/// Wraps `AVAudioPCMBuffer`.
 pub struct AVAudioPCMBuffer {
     handle: *mut c_void,
 }
 
 #[derive(Debug)]
+/// Wraps `AVAudioSequencer`.
 pub struct AVAudioSequencer {
     handle: *mut c_void,
 }
 
 impl AVAudioEngine {
+    /// Wraps `AVAudioEngineInit`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         if unsafe { ffi::avfaudio::at_av_audio_engine_new(&mut handle) } {
@@ -42,10 +50,12 @@ impl AVAudioEngine {
         }
     }
 
+    /// Wraps `AVAudioEnginePrepare`.
     pub fn prepare(&self) {
         unsafe { ffi::avfaudio::at_av_audio_engine_prepare(self.handle) };
     }
 
+    /// Wraps `AVAudioEngineStart`.
     pub fn start(&self) -> Result<()> {
         let mut error = std::ptr::null_mut();
         if unsafe { ffi::avfaudio::at_av_audio_engine_start(self.handle, &mut error) } {
@@ -55,18 +65,22 @@ impl AVAudioEngine {
         }
     }
 
+    /// Wraps `AVAudioEngineStop`.
     pub fn stop(&self) {
         unsafe { ffi::avfaudio::at_av_audio_engine_stop(self.handle) };
     }
 
+    /// Wraps `AVAudioEngineReset`.
     pub fn reset(&self) {
         unsafe { ffi::avfaudio::at_av_audio_engine_reset(self.handle) };
     }
 
+    /// Wraps `AVAudioEngineIsRunning`.
     pub fn is_running(&self) -> bool {
         unsafe { ffi::avfaudio::at_av_audio_engine_is_running(self.handle) }
     }
 
+    /// Wraps `AVAudioEngineOutputNode`.
     pub fn output_node(&self) -> Result<AVAudioNode> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe { ffi::avfaudio::at_av_audio_engine_output_node(self.handle, &mut handle) };
@@ -80,6 +94,7 @@ impl AVAudioEngine {
         }
     }
 
+    /// Wraps `AVAudioEngineMainMixerNode`.
     pub fn main_mixer_node(&self) -> Result<AVAudioNode> {
         let mut handle = std::ptr::null_mut();
         let ok =
@@ -114,14 +129,17 @@ impl AVAudioEngine {
 }
 
 impl AVAudioNode {
+    /// Wraps `AVAudioNodeNumberOfInputs`.
     pub fn number_of_inputs(&self) -> u64 {
         unsafe { ffi::avfaudio::at_av_audio_node_number_of_inputs(self.handle) }
     }
 
+    /// Wraps `AVAudioNodeNumberOfOutputs`.
     pub fn number_of_outputs(&self) -> u64 {
         unsafe { ffi::avfaudio::at_av_audio_node_number_of_outputs(self.handle) }
     }
 
+    /// Wraps `AVAudioNodeInputFormatForBus`.
     pub fn input_format(&self, bus: AVAudioNodeBus) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
         let ok =
@@ -136,6 +154,7 @@ impl AVAudioNode {
         }
     }
 
+    /// Wraps `AVAudioNodeOutputFormatForBus`.
     pub fn output_format(&self, bus: AVAudioNodeBus) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
         let ok =
@@ -150,14 +169,17 @@ impl AVAudioNode {
         }
     }
 
+    /// Wraps `AVAudioNodeReset`.
     pub fn reset(&self) {
         unsafe { ffi::avfaudio::at_av_audio_node_reset(self.handle) };
     }
 
+    /// Wraps `AVAudioNodeLatency`.
     pub fn latency(&self) -> f64 {
         unsafe { ffi::avfaudio::at_av_audio_node_latency(self.handle) }
     }
 
+    /// Wraps `AVAudioNodeOutputPresentationLatency`.
     pub fn output_presentation_latency(&self) -> f64 {
         unsafe { ffi::avfaudio::at_av_audio_node_output_presentation_latency(self.handle) }
     }
@@ -182,6 +204,7 @@ impl AVAudioNode {
 }
 
 impl AVAudioFormat {
+    /// Wraps `AVAudioFormatInitStandard`.
     pub fn standard(sample_rate: f64, channels: AVAudioChannelCount) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe {
@@ -197,6 +220,7 @@ impl AVAudioFormat {
         }
     }
 
+    /// Wraps `AVAudioFormatInitCommonFormat`.
     pub fn with_common_format(
         common_format: AVAudioCommonFormat,
         sample_rate: f64,
@@ -223,6 +247,7 @@ impl AVAudioFormat {
         }
     }
 
+    /// Wraps `AVAudioFormatInitStreamDescription`.
     pub fn from_stream_description(description: &AudioStreamBasicDescription) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe {
@@ -241,26 +266,32 @@ impl AVAudioFormat {
         }
     }
 
+    /// Wraps `AVAudioFormatSampleRate`.
     pub fn sample_rate(&self) -> f64 {
         unsafe { ffi::avfaudio::at_av_audio_format_sample_rate(self.handle) }
     }
 
+    /// Wraps `AVAudioFormatChannelCount`.
     pub fn channel_count(&self) -> AVAudioChannelCount {
         unsafe { ffi::avfaudio::at_av_audio_format_channel_count(self.handle) }
     }
 
+    /// Wraps `AVAudioFormatCommonFormat`.
     pub fn common_format(&self) -> AVAudioCommonFormat {
         unsafe { ffi::avfaudio::at_av_audio_format_common_format(self.handle) }
     }
 
+    /// Wraps `AVAudioFormatIsStandard`.
     pub fn is_standard(&self) -> bool {
         unsafe { ffi::avfaudio::at_av_audio_format_is_standard(self.handle) }
     }
 
+    /// Wraps `AVAudioFormatIsInterleaved`.
     pub fn is_interleaved(&self) -> bool {
         unsafe { ffi::avfaudio::at_av_audio_format_is_interleaved(self.handle) }
     }
 
+    /// Wraps `AVAudioFormatStreamDescription`.
     pub fn stream_description(&self) -> Result<AudioStreamBasicDescription> {
         let mut description = MaybeUninit::<AudioStreamBasicDescription>::uninit();
         let ok = unsafe {
@@ -299,6 +330,9 @@ impl AVAudioFormat {
 }
 
 impl AVAudioPCMBuffer {
+    /// Wraps `AVAudioPCMBufferInit`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(format: &AVAudioFormat, frame_capacity: AVAudioFrameCount) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe {
@@ -314,6 +348,7 @@ impl AVAudioPCMBuffer {
         }
     }
 
+    /// Wraps `AVAudioPCMBufferFormat`.
     pub fn format(&self) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_format(self.handle, &mut handle) };
@@ -327,20 +362,24 @@ impl AVAudioPCMBuffer {
         }
     }
 
+    /// Wraps `AVAudioPCMBufferFrameCapacity`.
     pub fn frame_capacity(&self) -> AVAudioFrameCount {
         unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_frame_capacity(self.handle) }
     }
 
+    /// Wraps `AVAudioPCMBufferFrameLength`.
     pub fn frame_length(&self) -> AVAudioFrameCount {
         unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_frame_length(self.handle) }
     }
 
+    /// Wraps `AVAudioPCMBufferSetFrameLength`.
     pub fn set_frame_length(&self, frame_length: AVAudioFrameCount) {
         unsafe {
             ffi::avfaudio::at_av_audio_pcm_buffer_set_frame_length(self.handle, frame_length);
         }
     }
 
+    /// Wraps `AVAudioPCMBufferStride`.
     pub fn stride(&self) -> AVAudioChannelCount {
         unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_stride(self.handle) }
     }
@@ -365,6 +404,9 @@ impl AVAudioPCMBuffer {
 }
 
 impl AVAudioSequencer {
+    /// Wraps `AVAudioSequencerInit`.
+    ///
+    /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         if unsafe { ffi::avfaudio::at_av_audio_sequencer_new(&mut handle) } {
@@ -377,6 +419,7 @@ impl AVAudioSequencer {
         }
     }
 
+    /// Wraps `AVAudioSequencerInitWithAudioEngine`.
     pub fn with_engine(engine: &AVAudioEngine) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe {
@@ -392,14 +435,17 @@ impl AVAudioSequencer {
         }
     }
 
+    /// Wraps `AVAudioSequencerTrackCount`.
     pub fn track_count(&self) -> u64 {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_track_count(self.handle) }
     }
 
+    /// Wraps `AVAudioSequencerPrepareToPlay`.
     pub fn prepare_to_play(&self) {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_prepare_to_play(self.handle) };
     }
 
+    /// Wraps `AVAudioSequencerStart`.
     pub fn start(&self) -> Result<()> {
         let mut error = std::ptr::null_mut();
         if unsafe { ffi::avfaudio::at_av_audio_sequencer_start(self.handle, &mut error) } {
@@ -409,18 +455,22 @@ impl AVAudioSequencer {
         }
     }
 
+    /// Wraps `AVAudioSequencerStop`.
     pub fn stop(&self) {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_stop(self.handle) };
     }
 
+    /// Wraps `AVAudioSequencerIsPlaying`.
     pub fn is_playing(&self) -> bool {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_is_playing(self.handle) }
     }
 
+    /// Wraps `AVAudioSequencerCurrentPositionSeconds`.
     pub fn current_position_seconds(&self) -> f64 {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_current_position_seconds(self.handle) }
     }
 
+    /// Wraps `AVAudioSequencerSetCurrentPositionSeconds`.
     pub fn set_current_position_seconds(&self, position: f64) {
         unsafe {
             ffi::avfaudio::at_av_audio_sequencer_set_current_position_seconds(
@@ -430,10 +480,12 @@ impl AVAudioSequencer {
         }
     }
 
+    /// Wraps `AVAudioSequencerRate`.
     pub fn rate(&self) -> f32 {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_rate(self.handle) }
     }
 
+    /// Wraps `AVAudioSequencerSetRate`.
     pub fn set_rate(&self, rate: f32) {
         unsafe { ffi::avfaudio::at_av_audio_sequencer_set_rate(self.handle, rate) };
     }

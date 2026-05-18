@@ -5,12 +5,14 @@ use crate::{
 use std::ffi::c_void;
 
 #[derive(Debug)]
+/// Wraps `AUGraph`.
 pub struct AUGraph {
     handle: *mut c_void,
     raw: *mut c_void,
 }
 
 impl AUGraph {
+    /// Wraps `NewAUGraph`.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe { ffi::au_graph::at_au_graph_new(&mut handle) };
@@ -18,40 +20,48 @@ impl AUGraph {
         Self::from_handle(handle, "NewAUGraph")
     }
 
+    /// Returns the wrapped `AUGraph` handle.
     pub fn as_raw(&self) -> *mut c_void {
         self.raw
     }
 
+    /// Wraps `AUGraphOpen`.
     pub fn open(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_open(self.handle) };
         status_to_result("AUGraphOpen", status)
     }
 
+    /// Wraps `AUGraphClose`.
     pub fn close_graph(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_close(self.raw) };
         status_to_result("AUGraphClose", status)
     }
 
+    /// Wraps `AUGraphInitialize`.
     pub fn initialize(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_initialize(self.handle) };
         status_to_result("AUGraphInitialize", status)
     }
 
+    /// Wraps `AUGraphUninitialize`.
     pub fn uninitialize(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_uninitialize(self.handle) };
         status_to_result("AUGraphUninitialize", status)
     }
 
+    /// Wraps `AUGraphStart`.
     pub fn start(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_start(self.handle) };
         status_to_result("AUGraphStart", status)
     }
 
+    /// Wraps `AUGraphStop`.
     pub fn stop(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_stop(self.handle) };
         status_to_result("AUGraphStop", status)
     }
 
+    /// Wraps `AUGraphUpdate`.
     pub fn update(&self) -> Result<bool> {
         let mut is_updated = 0_u8;
         let status = unsafe { ffi::au_graph::at_au_graph_update(self.raw, &mut is_updated) };
@@ -59,6 +69,7 @@ impl AUGraph {
         Ok(is_updated != 0)
     }
 
+    /// Wraps `AUGraphIsOpen`.
     pub fn is_open(&self) -> Result<bool> {
         let mut is_open = 0_u8;
         let status = unsafe { ffi::au_graph::at_au_graph_is_open(self.raw, &mut is_open) };
@@ -66,6 +77,7 @@ impl AUGraph {
         Ok(is_open != 0)
     }
 
+    /// Wraps `AUGraphIsInitialized`.
     pub fn is_initialized(&self) -> Result<bool> {
         let mut is_initialized = 0_u8;
         let status =
@@ -74,6 +86,7 @@ impl AUGraph {
         Ok(is_initialized != 0)
     }
 
+    /// Wraps `AUGraphIsRunning`.
     pub fn is_running(&self) -> Result<bool> {
         let mut is_running = 0_u8;
         let status = unsafe { ffi::au_graph::at_au_graph_is_running(self.raw, &mut is_running) };
@@ -81,6 +94,7 @@ impl AUGraph {
         Ok(is_running != 0)
     }
 
+    /// Wraps `AUGraphGetCPULoad`.
     pub fn cpu_load(&self) -> Result<f32> {
         let mut cpu_load = 0.0_f32;
         let status = unsafe { ffi::au_graph::at_au_graph_get_cpu_load(self.raw, &mut cpu_load) };
@@ -88,6 +102,7 @@ impl AUGraph {
         Ok(cpu_load)
     }
 
+    /// Wraps `AUGraphGetMaxCPULoad`.
     pub fn max_cpu_load(&self) -> Result<f32> {
         let mut cpu_load = 0.0_f32;
         let status =
@@ -96,6 +111,7 @@ impl AUGraph {
         Ok(cpu_load)
     }
 
+    /// Wraps `AUGraphGetNodeCount`.
     pub fn node_count(&self) -> Result<u32> {
         let mut node_count = 0_u32;
         let status =
@@ -104,6 +120,7 @@ impl AUGraph {
         Ok(node_count)
     }
 
+    /// Wraps `AUGraphAddNode`.
     pub fn add_node(&self, description: AudioComponentDescription) -> Result<AUNode> {
         let mut node = 0_i32;
         let status = unsafe {
@@ -117,6 +134,7 @@ impl AUGraph {
         Ok(node)
     }
 
+    /// Wraps `AUGraphConnectNodeInput`.
     pub fn connect_node_input(
         &self,
         source_node: AUNode,
@@ -136,6 +154,7 @@ impl AUGraph {
         status_to_result("AUGraphConnectNodeInput", status)
     }
 
+    /// Wraps `AUGraphSetNodeInputCallback`.
     pub fn set_node_input_callback(
         &self,
         dest_node: AUNode,
@@ -153,6 +172,7 @@ impl AUGraph {
         status_to_result("AUGraphSetNodeInputCallback", status)
     }
 
+    /// Wraps `AUGraphDisconnectNodeInput`.
     pub fn disconnect_node_input(&self, dest_node: AUNode, dest_input_number: u32) -> Result<()> {
         let status = unsafe {
             ffi::au_graph::at_au_graph_disconnect_node_input(self.raw, dest_node, dest_input_number)
@@ -160,11 +180,13 @@ impl AUGraph {
         status_to_result("AUGraphDisconnectNodeInput", status)
     }
 
+    /// Wraps `AUGraphClearConnections`.
     pub fn clear_connections(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_clear_connections(self.raw) };
         status_to_result("AUGraphClearConnections", status)
     }
 
+    /// Wraps `AUGraphGetNumberOfInteractions`.
     pub fn interaction_count(&self) -> Result<u32> {
         let mut interaction_count = 0_u32;
         let status = unsafe {
@@ -174,6 +196,7 @@ impl AUGraph {
         Ok(interaction_count)
     }
 
+    /// Wraps `AUGraphGetInteractionInfo`.
     pub fn interaction_info(&self, interaction_index: u32) -> Result<AUNodeInteraction> {
         let mut interaction = std::mem::MaybeUninit::<AUNodeInteraction>::uninit();
         let status = unsafe {
@@ -187,6 +210,7 @@ impl AUGraph {
         Ok(unsafe { interaction.assume_init() })
     }
 
+    /// Wraps `AUGraphCountNodeInteractions`.
     pub fn count_node_interactions(&self, node: AUNode) -> Result<u32> {
         let mut interaction_count = 0_u32;
         let status = unsafe {
@@ -200,6 +224,7 @@ impl AUGraph {
         Ok(interaction_count)
     }
 
+    /// Wraps `AUGraphGetNodeInteractions`.
     pub fn node_interactions(&self, node: AUNode) -> Result<Vec<AUNodeInteraction>> {
         let mut interaction_count = self.count_node_interactions(node)?;
         let mut interactions =
@@ -220,6 +245,8 @@ impl AUGraph {
             .collect())
     }
 
+    /// Wraps `AUGraphAddRenderNotify`.
+    ///
     /// # Safety
     ///
     /// `ref_con` must remain valid for as long as the render notify callback can be invoked.
@@ -233,6 +260,8 @@ impl AUGraph {
         status_to_result("AUGraphAddRenderNotify", status)
     }
 
+    /// Wraps `AUGraphRemoveRenderNotify`.
+    ///
     /// # Safety
     ///
     /// `ref_con` must match the pointer used when the render notify callback was registered.
@@ -246,6 +275,7 @@ impl AUGraph {
         status_to_result("AUGraphRemoveRenderNotify", status)
     }
 
+    /// Wraps `AUGraphNodeInfo`.
     pub fn node_description(&self, node: AUNode) -> Result<AudioComponentDescription> {
         let mut description = AudioComponentDescription::wildcard();
         let status =

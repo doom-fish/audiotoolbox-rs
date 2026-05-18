@@ -6,11 +6,13 @@ use crate::{
 use std::path::Path;
 
 #[derive(Debug)]
+/// Owning wrapper around an AudioToolbox.framework `SystemSoundID`.
 pub struct SystemSound {
     handle: *mut std::ffi::c_void,
 }
 
 impl SystemSound {
+    /// Wraps `AudioServicesCreateSystemSoundID`.
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
@@ -26,18 +28,22 @@ impl SystemSound {
         Ok(Self { handle })
     }
 
+    /// Wraps `SystemSoundID`.
     pub fn id(&self) -> SystemSoundId {
         unsafe { ffi::audio_services::at_system_sound_id(self.handle) }
     }
 
+    /// Wraps `SystemSoundPlay`.
     pub fn play(&self) {
         unsafe { ffi::audio_services::at_system_sound_play(self.handle) };
     }
 
+    /// Wraps `SystemSoundPlayAlert`.
     pub fn play_alert(&self) {
         unsafe { ffi::audio_services::at_system_sound_play_alert(self.handle) };
     }
 
+    /// Wraps `AudioServicesGetProperty`.
     pub fn is_ui_sound(&self) -> Result<bool> {
         let mut value = 0_u32;
         let status = unsafe {
@@ -47,6 +53,7 @@ impl SystemSound {
         Ok(value != 0)
     }
 
+    /// Wraps `AudioServicesSetProperty`.
     pub fn set_is_ui_sound(&self, is_ui_sound: bool) -> Result<()> {
         let status = unsafe {
             ffi::audio_services::at_system_sound_set_is_ui_sound(
@@ -57,6 +64,7 @@ impl SystemSound {
         status_to_result("AudioServicesSetProperty(is UI sound)", status)
     }
 
+    /// Wraps `AudioServicesGetProperty`.
     pub fn complete_playback_if_app_dies(&self) -> Result<bool> {
         let mut value = 0_u32;
         let status = unsafe {
@@ -72,6 +80,7 @@ impl SystemSound {
         Ok(value != 0)
     }
 
+    /// Wraps `AudioServicesSetProperty`.
     pub fn set_complete_playback_if_app_dies(&self, enabled: bool) -> Result<()> {
         let status = unsafe {
             ffi::audio_services::at_system_sound_set_complete_playback_if_app_dies(
@@ -85,6 +94,7 @@ impl SystemSound {
         )
     }
 
+    /// Wraps `SystemSoundDispose`.
     pub fn dispose(mut self) -> Result<()> {
         self.release();
         Ok(())

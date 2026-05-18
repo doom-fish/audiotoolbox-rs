@@ -1,12 +1,14 @@
 use crate::{ffi, AudioToolboxError, CAFChunkHeader, CAFFileHeader, Result, CAF_FILE_MAGIC};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Wraps `CafFile`.
 pub struct CafFile {
     header: CAFFileHeader,
     first_chunk: Option<CAFChunkHeader>,
 }
 
 impl CafFile {
+    /// Wraps `CAFIsCAFFile`.
     pub fn parse(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < 8 {
             return Err(AudioToolboxError::message(
@@ -47,31 +49,38 @@ impl CafFile {
         })
     }
 
+    /// Wraps `CafFileHeader`.
     pub fn header(&self) -> CAFFileHeader {
         self.header
     }
 
+    /// Wraps `CafFileFirstChunk`.
     pub fn first_chunk(&self) -> Option<CAFChunkHeader> {
         self.first_chunk
     }
 
+    /// Wraps `CAFIsCAFFile`.
     pub fn is_caf(bytes: &[u8]) -> bool {
         let data_len = u32::try_from(bytes.len()).unwrap_or(u32::MAX);
         unsafe { ffi::caf_file::at_caf_is_caf_file(bytes.as_ptr(), data_len) != 0 }
     }
 
+    /// Wraps `CafFileFileType`.
     pub fn file_type(&self) -> u32 {
         self.header.mFileType
     }
 
+    /// Wraps `CafFileFileVersion`.
     pub fn file_version(&self) -> u16 {
         self.header.mFileVersion
     }
 
+    /// Wraps `CafFileFileFlags`.
     pub fn file_flags(&self) -> u16 {
         self.header.mFileFlags
     }
 
+    /// Wraps `CafFileIsMagicValid`.
     pub fn is_magic_valid(&self) -> bool {
         self.header.mFileType == CAF_FILE_MAGIC
     }
