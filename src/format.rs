@@ -17,6 +17,7 @@ use crate::{
 };
 use std::{ffi::c_void, mem::MaybeUninit};
 
+#[derive(Debug)]
 /// Namespace wrapper for `AudioFormatGetProperty` and related AudioToolbox.framework APIs.
 pub struct AudioFormat;
 

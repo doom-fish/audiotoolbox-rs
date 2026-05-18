@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-05-18
+
+### Changed
+
+- Added `Debug` coverage for the remaining public structs outside the generated and `ffi` modules, with manual formatters for the callback and union-backed wrappers that cannot derive it directly.
+- Bumped the crate to `0.3.1`.
+
 ## [0.3.0] - 2026-05-18
 
 ### Changed

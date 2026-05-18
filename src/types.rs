@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::ffi::c_void;
+use std::{ffi::c_void, fmt};
 
 pub use apple_cf::raw::{
     CFArrayRef, CFDataRef, CFDictionaryRef, CFPropertyListRef, CFStringRef, CFURLRef,
@@ -1001,6 +1001,18 @@ pub struct AudioUnitParameterEvent {
     pub eventValues: AudioUnitParameterEventValues,
 }
 
+impl fmt::Debug for AudioUnitParameterEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AudioUnitParameterEvent")
+            .field("scope", &self.scope)
+            .field("element", &self.element)
+            .field("parameter", &self.parameter)
+            .field("eventType", &self.eventType)
+            .field("eventValues", &"<union>")
+            .finish()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 /// Wraps `AudioUnitParameter`.
@@ -1058,6 +1070,15 @@ pub struct AURenderCallbackStruct {
     pub inputProcRefCon: *mut c_void,
 }
 
+impl fmt::Debug for AURenderCallbackStruct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AURenderCallbackStruct")
+            .field("inputProc", &(self.inputProc as *const c_void))
+            .field("inputProcRefCon", &self.inputProcRefCon)
+            .finish()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Wraps `AudioUnitNodeConnection`.
@@ -1073,7 +1094,7 @@ pub struct AudioUnitNodeConnection {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 /// Wraps `AUNodeRenderCallback`.
 pub struct AUNodeRenderCallback {
     /// Wraps `AUNodeInteractionDetails`.
@@ -1102,6 +1123,15 @@ pub struct AUNodeInteraction {
     pub nodeInteractionType: u32,
     /// Wraps `AudioQueueBuffer`.
     pub nodeInteraction: AUNodeInteractionDetails,
+}
+
+impl fmt::Debug for AUNodeInteraction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AUNodeInteraction")
+            .field("nodeInteractionType", &self.nodeInteractionType)
+            .field("nodeInteraction", &"<union>")
+            .finish()
+    }
 }
 
 #[repr(C)]
