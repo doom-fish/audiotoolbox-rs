@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] - 2026-05-18
+
+### Changed
+
+- Re-exported Core Foundation `CF*Ref` aliases from `apple_cf::raw` instead of duplicating local typedefs and opaque tags.
+- Raised the minimum `apple-cf` dependency to `0.8` so the shared raw Core Foundation surface is available.
+- Bumped the crate to `0.3.0`.
+
 ## [0.2.5] - 2026-05-18
 
 - Widen apple-cf version bound to `<0.9` so the 0.8.0 nested-CGRect dep resolves. No source changes.

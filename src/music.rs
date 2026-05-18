@@ -3,9 +3,9 @@ use crate::{
     internal::{
         cf_data_from_bytes, cf_data_to_vec, cf_release, cf_url_from_path, status_to_result,
     },
-    AUGraph, AUNode, AUPresetEvent, AudioToolboxError, CABarBeatTime, ExtendedNoteOnEvent,
-    MIDIChannelMessage, MIDIEndpointRef, MIDIMetaEvent, MIDINoteMessage, MIDIRawData,
-    MusicEventIteratorRef, MusicEventType, MusicEventUserData, MusicPlayerRef,
+    AUGraph, AUNode, AUPresetEvent, AudioToolboxError, CABarBeatTime, CFDictionaryRef,
+    ExtendedNoteOnEvent, MIDIChannelMessage, MIDIEndpointRef, MIDIMetaEvent, MIDINoteMessage,
+    MIDIRawData, MusicEventIteratorRef, MusicEventType, MusicEventUserData, MusicPlayerRef,
     MusicSequenceFileFlags, MusicSequenceFileTypeId, MusicSequenceLoadFlags, MusicSequenceRef,
     MusicSequenceType, MusicTimeStamp, MusicTrackRef, ParameterEvent, Result,
 };
@@ -340,7 +340,7 @@ impl MusicSequence {
     }
 
     /// Wraps `MusicSequenceGetInfoDictionary`.
-    pub fn info_dictionary_raw(&self) -> *const c_void {
+    pub fn info_dictionary_raw(&self) -> CFDictionaryRef {
         unsafe { ffi::music::at_music_sequence_get_info_dictionary(self.raw.cast()) }
     }
 

@@ -1,3 +1,5 @@
+use crate::{CFDataRef, CFURLRef};
+use apple_cf::raw::CFAllocatorRef;
 use std::ffi::c_void;
 
 unsafe extern "C" {
@@ -33,24 +35,24 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `CFDataCreate`.
     pub fn at_cf_data_create(
-        allocator: *const c_void,
+        allocator: CFAllocatorRef,
         bytes: *const u8,
         length: isize,
-    ) -> *const c_void;
+    ) -> CFDataRef;
     #[link_name = "CFDataGetLength"]
     /// Raw binding for `CFDataGetLength`.
     ///
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `CFDataGetLength`.
-    pub fn at_cf_data_get_length(data: *const c_void) -> isize;
+    pub fn at_cf_data_get_length(data: CFDataRef) -> isize;
     #[link_name = "CFDataGetBytePtr"]
     /// Raw binding for `CFDataGetBytePtr`.
     ///
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `CFDataGetBytePtr`.
-    pub fn at_cf_data_get_byte_ptr(data: *const c_void) -> *const u8;
+    pub fn at_cf_data_get_byte_ptr(data: CFDataRef) -> *const u8;
     #[link_name = "CFURLCreateFromFileSystemRepresentation"]
     /// Raw binding for `CFURLCreateFromFileSystemRepresentation`.
     ///
@@ -58,9 +60,9 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `CFURLCreateFromFileSystemRepresentation`.
     pub fn at_cf_url_create_from_file_system_representation(
-        allocator: *const c_void,
+        allocator: CFAllocatorRef,
         buffer: *const u8,
         buf_len: isize,
         is_directory: bool,
-    ) -> *const c_void;
+    ) -> CFURLRef;
 }

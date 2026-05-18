@@ -2,6 +2,8 @@
 
 use std::ffi::c_void;
 
+pub use apple_cf::raw::{CFDataRef, CFDictionaryRef, CFStringRef, CFURLRef};
+
 /// Wraps `OSStatus`.
 pub type OSStatus = i32;
 /// Wraps `OSType`.
@@ -26,10 +28,6 @@ pub type AudioConverterPropertyId = u32;
 pub type SystemSoundId = u32;
 /// Wraps `Boolean`.
 pub type Boolean = u8;
-/// Wraps `CFURLRef`.
-pub type CFURLRef = *const c_void;
-/// Wraps `CFStringRef`.
-pub type CFStringRef = *const c_void;
 /// Wraps `AudioFileID`.
 pub type AudioFileId = *mut c_void;
 /// Wraps `ExtAudioFileRef`.
@@ -631,10 +629,6 @@ pub type MusicPlayerRef = *mut c_void;
 pub type MusicEventIteratorRef = *mut c_void;
 /// Wraps `MusicEventType`.
 pub type MusicEventType = u32;
-/// Wraps `CFDataRef`.
-pub type CFDataRef = *const c_void;
-/// Wraps `CFDictionaryRef`.
-pub type CFDictionaryRef = *const c_void;
 /// Wraps `MusicTrackPropertyID`.
 pub type MusicTrackPropertyId = u32;
 /// Wraps `AUNode`.

@@ -2,6 +2,10 @@
 
 use std::ffi::c_void;
 
+pub use apple_cf::raw::{
+    CFArrayRef, CFDataRef, CFDictionaryRef, CFPropertyListRef, CFStringRef, CFURLRef,
+};
+
 /// Wraps `Boolean`.
 pub type Boolean = u8;
 /// Wraps `OSStatus`.
@@ -158,18 +162,6 @@ pub type MusicPlayerRef = *mut c_void;
 pub type MusicEventIteratorRef = *mut c_void;
 /// Wraps `AudioFileStreamID`.
 pub type AudioFileStreamId = *mut c_void;
-/// Wraps `CFURLRef`.
-pub type CFURLRef = *const c_void;
-/// Wraps `CFStringRef`.
-pub type CFStringRef = *const c_void;
-/// Wraps `CFDataRef`.
-pub type CFDataRef = *const c_void;
-/// Wraps `CFArrayRef`.
-pub type CFArrayRef = *const c_void;
-/// Wraps `CFDictionaryRef`.
-pub type CFDictionaryRef = *const c_void;
-/// Wraps `CFPropertyListRef`.
-pub type CFPropertyListRef = *const c_void;
 
 /// Packs a `FourCharCode` value used by AudioToolbox.framework.
 pub const fn fourcc(bytes: [u8; 4]) -> u32 {
