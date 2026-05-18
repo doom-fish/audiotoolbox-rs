@@ -3,15 +3,9 @@
 use std::{ffi::c_void, fmt};
 
 pub use apple_cf::raw::{
-    CFArrayRef, CFDataRef, CFDictionaryRef, CFPropertyListRef, CFStringRef, CFURLRef,
+    Boolean, CFArrayRef, CFDataRef, CFDictionaryRef, CFPropertyListRef, CFStringRef, CFURLRef,
+    OSStatus, OSType,
 };
-
-/// Wraps `Boolean`.
-pub type Boolean = u8;
-/// Wraps `OSStatus`.
-pub type OSStatus = i32;
-/// Wraps `OSType`.
-pub type OSType = u32;
 
 /// Wraps `AudioFormatID`.
 pub type AudioFormatId = u32;
