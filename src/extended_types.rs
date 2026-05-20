@@ -360,7 +360,9 @@ mod tests {
 
     #[test]
     fn opaque_handle_round_trips_raw_pointer() {
-        let raw = std::ptr::NonNull::<u8>::dangling().as_ptr().cast::<c_void>();
+        let raw = std::ptr::NonNull::<u8>::dangling()
+            .as_ptr()
+            .cast::<c_void>();
         let handle = AVAudioTime::from_raw(raw);
 
         assert_eq!(handle.as_raw(), raw);

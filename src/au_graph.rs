@@ -111,6 +111,11 @@ impl AUGraph {
         Ok(cpu_load)
     }
 
+    pub(crate) fn retained(&self) -> Result<Self> {
+        let handle = unsafe { ffi::au_graph::at_au_graph_retain(self.handle) };
+        Self::from_handle(handle, "AUGraphRetain")
+    }
+
     /// Wraps `AUGraphGetNodeCount`.
     pub fn node_count(&self) -> Result<u32> {
         let mut node_count = 0_u32;
@@ -273,6 +278,16 @@ impl AUGraph {
         let status =
             unsafe { ffi::au_graph::at_au_graph_remove_render_notify(self.raw, callback, ref_con) };
         status_to_result("AUGraphRemoveRenderNotify", status)
+    }
+
+    /// Subscribe to async render-notify events.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn render_notify_stream(
+        &self,
+        capacity: usize,
+    ) -> Result<crate::async_api::AUGraphRenderNotifyStream> {
+        crate::async_api::AUGraphRenderNotifyStream::subscribe(self, capacity)
     }
 
     /// Wraps `AUGraphNodeInfo`.

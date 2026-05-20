@@ -55,6 +55,15 @@ public func at_au_graph_raw(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutable
     return UnsafeMutableRawPointer(auGraph(from: handle))
 }
 
+@_cdecl("at_au_graph_retain")
+public func at_au_graph_retain(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    guard let handle else {
+        return nil
+    }
+    let box: AUGraphBox = takeUnretained(handle)
+    return retainObject(box)
+}
+
 @_cdecl("at_au_graph_open")
 public func at_au_graph_open(_ handle: UnsafeMutableRawPointer?) -> Int32 {
     guard let handle else {

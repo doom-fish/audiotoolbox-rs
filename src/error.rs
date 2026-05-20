@@ -87,7 +87,10 @@ mod tests {
 
         assert_eq!(error.operation(), "AudioQueueStart");
         assert_eq!(error.status(), None);
-        assert_eq!(error.to_string(), "AudioQueueStart failed: device unavailable");
+        assert_eq!(
+            error.to_string(),
+            "AudioQueueStart failed: device unavailable"
+        );
     }
 
     #[test]
@@ -105,6 +108,9 @@ mod tests {
     fn display_omits_fourcc_for_non_printable_status_errors() {
         let error = AudioToolboxError::from_status("AudioQueueStart", -50);
 
-        assert_eq!(error.to_string(), "AudioQueueStart failed with OSStatus -50");
+        assert_eq!(
+            error.to_string(),
+            "AudioQueueStart failed with OSStatus -50"
+        );
     }
 }

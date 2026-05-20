@@ -541,7 +541,10 @@ mod tests {
         assert!(description.is_linear_pcm());
         assert!(description.is_interleaved());
         assert_eq!(description.interleaved_bytes_for_frames(4), Some(32));
-        assert_ne!(description.linear_pcm_flags() & LINEAR_PCM_FORMAT_FLAG_IS_FLOAT, 0);
+        assert_ne!(
+            description.linear_pcm_flags() & LINEAR_PCM_FORMAT_FLAG_IS_FLOAT,
+            0
+        );
     }
 
     #[test]

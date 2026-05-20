@@ -23,6 +23,9 @@
 #[cfg(not(target_os = "macos"))]
 compile_error!("audiotoolbox only supports macOS");
 
+#[cfg(feature = "async")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+pub mod async_api;
 mod au_audio_unit;
 mod au_graph;
 mod audio_component;

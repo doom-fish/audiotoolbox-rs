@@ -23,6 +23,12 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AUGraphRaw`.
     pub fn at_au_graph_raw(handle: *mut c_void) -> *mut c_void;
+    /// Raw binding for `AUGraphRetain`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AUGraphRetain`.
+    pub fn at_au_graph_retain(handle: *mut c_void) -> *mut c_void;
     /// Raw binding for `AUGraphOpen`.
     ///
     /// # Safety

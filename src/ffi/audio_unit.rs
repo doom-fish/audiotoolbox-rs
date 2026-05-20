@@ -23,6 +23,12 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioUnitRaw`.
     pub fn at_audio_unit_raw(handle: *mut c_void) -> *mut c_void;
+    /// Raw binding for `AudioUnitRetain`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioUnitRetain`.
+    pub fn at_audio_unit_retain(handle: *mut c_void) -> *mut c_void;
     /// Raw binding for `AudioUnitRelease`.
     ///
     /// # Safety

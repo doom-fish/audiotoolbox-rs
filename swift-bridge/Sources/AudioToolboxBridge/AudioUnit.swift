@@ -68,6 +68,15 @@ public func at_audio_unit_raw(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutab
     return toRawPointer(box.value)
 }
 
+@_cdecl("at_audio_unit_retain")
+public func at_audio_unit_retain(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    guard let handle else {
+        return nil
+    }
+    let box: AudioUnitBox = takeUnretained(handle)
+    return retainObject(box)
+}
+
 @_cdecl("at_audio_unit_release")
 public func at_audio_unit_release(_ handle: UnsafeMutableRawPointer?) {
     guard let handle else {

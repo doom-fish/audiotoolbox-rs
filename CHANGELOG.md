@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0] - 2026-05-20
+
+### Added
+
+- `async` feature plus `async_api` stream wrappers for `AudioUnit` property listeners, `AudioUnit` render-notify callbacks, and `AUGraph` render-notify callbacks.
+- Real-time-safe SPSC handoff for render-notify callbacks while leaving synchronous pull-render callbacks as manual APIs.
+
+### Notes
+
+- Phase 32 completeness + async sweep.
+
 ## [0.3.4] - 2026-05-20
 
 - Added in-`src/` unit tests across `format`, `error`, and `extended_types` (Tier 2 quality polish), providing fast `cargo test --lib` fail-fast signal alongside the existing integration tests under `tests/`.

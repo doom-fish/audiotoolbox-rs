@@ -2,7 +2,9 @@
 
 use std::ffi::c_void;
 
-pub use apple_cf::raw::{Boolean, CFDataRef, CFDictionaryRef, CFStringRef, CFURLRef, OSStatus, OSType};
+pub use apple_cf::raw::{
+    Boolean, CFDataRef, CFDictionaryRef, CFStringRef, CFURLRef, OSStatus, OSType,
+};
 /// Wraps `AudioFileTypeID`.
 pub type AudioFileTypeId = u32;
 /// Wraps `AudioFilePropertyID`.

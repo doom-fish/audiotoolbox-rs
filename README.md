@@ -4,7 +4,7 @@ Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS via a Swift b
 
 ## Covered areas
 
-`audiotoolbox-rs` 0.2.3 now ships bridge-backed wrappers for:
+`audiotoolbox-rs` 0.4.0 now ships bridge-backed wrappers for:
 
 - `AudioFormat`
 - `AudioFile`
@@ -28,14 +28,14 @@ The original raw C surface is still available behind the `raw-ffi` Cargo feature
 
 ```toml
 [dependencies]
-audiotoolbox = "0.2.3"
+audiotoolbox = "0.4.0"
 ```
 
 To reach the legacy raw C bindings as well:
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.2.3", features = ["raw-ffi"] }
+audiotoolbox = { version = "0.4.0", features = ["raw-ffi"] }
 ```
 
 ## Quick start
@@ -57,6 +57,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+```
+
+## Async callback streams
+
+Enable the `async` feature for executor-agnostic wrappers over property listeners and render-notify callbacks. Render-notify streams use a real-time-safe SPSC handoff; synchronous pull-render callbacks remain manual.
+
+```toml
+[dependencies]
+audiotoolbox = { version = "0.4.0", features = ["async"] }
+```
+
+```rust,no_run
+use audiotoolbox::{
+    AudioUnit, AUDIO_COMPONENT_TYPE_FORMAT_CONVERTER, AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
+    AUDIO_UNIT_SUBTYPE_AU_CONVERTER,
+};
+
+# async fn run() -> Result<(), audiotoolbox::AudioToolboxError> {
+let unit = AudioUnit::new_apple(
+    AUDIO_COMPONENT_TYPE_FORMAT_CONVERTER,
+    AUDIO_UNIT_SUBTYPE_AU_CONVERTER,
+)?;
+let property_stream = unit.property_events(AUDIO_UNIT_PROPERTY_STREAM_FORMAT, 16)?;
+let render_stream = unit.render_notify_stream(128)?;
+let _ = property_stream.buffered_count() + render_stream.buffered_count();
+# Ok(())
+# }
 ```
 
 ## Highlights

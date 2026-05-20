@@ -58,6 +58,27 @@ impl AudioUnit {
         self.raw
     }
 
+    pub(crate) fn retained(&self) -> Result<Self> {
+        let handle = unsafe { ffi::audio_unit::at_audio_unit_retain(self.handle) };
+        if handle.is_null() {
+            return Err(AudioToolboxError::message(
+                "AudioUnitRetain",
+                "framework returned a null AudioUnit handle",
+            ));
+        }
+
+        let raw: AudioUnitRef = unsafe { ffi::audio_unit::at_audio_unit_raw(handle) }.cast();
+        if raw.is_null() {
+            unsafe { ffi::audio_unit::at_audio_unit_release(handle) };
+            return Err(AudioToolboxError::message(
+                "AudioUnitRetain",
+                "framework returned a null AudioUnit",
+            ));
+        }
+
+        Ok(Self { handle, raw })
+    }
+
     /// Wraps `AudioUnitInitialize`.
     pub fn initialize(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_unit_initialize(self.raw.cast()) };
@@ -312,6 +333,27 @@ impl AudioUnit {
             ffi::audio_unit::at_audio_unit_remove_render_notify(self.raw.cast(), proc, user_data)
         };
         status_to_result("AudioUnitRemoveRenderNotify", status)
+    }
+
+    /// Subscribe to async property-listener events for `property_id`.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn property_events(
+        &self,
+        property_id: AudioUnitPropertyId,
+        capacity: usize,
+    ) -> Result<crate::async_api::AudioUnitPropertyStream> {
+        crate::async_api::AudioUnitPropertyStream::subscribe(self, property_id, capacity)
+    }
+
+    /// Subscribe to async render-notify events.
+    #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub fn render_notify_stream(
+        &self,
+        capacity: usize,
+    ) -> Result<crate::async_api::AudioUnitRenderNotifyStream> {
+        crate::async_api::AudioUnitRenderNotifyStream::subscribe(self, capacity)
     }
 
     /// Wraps `AudioUnitScheduleParameters`.
