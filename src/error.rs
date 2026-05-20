@@ -68,3 +68,43 @@ impl fmt::Display for AudioToolboxError {
 }
 
 impl Error for AudioToolboxError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_status_preserves_operation_and_status() {
+        let error = AudioToolboxError::from_status("AudioQueueStart", -50);
+
+        assert_eq!(error.operation(), "AudioQueueStart");
+        assert_eq!(error.status(), Some(-50));
+    }
+
+    #[test]
+    fn message_constructor_preserves_operation_and_formats_message() {
+        let error = AudioToolboxError::message("AudioQueueStart", "device unavailable");
+
+        assert_eq!(error.operation(), "AudioQueueStart");
+        assert_eq!(error.status(), None);
+        assert_eq!(error.to_string(), "AudioQueueStart failed: device unavailable");
+    }
+
+    #[test]
+    fn display_includes_printable_fourcc_for_status_errors() {
+        let status = i32::from_be_bytes(*b"lpcm");
+        let error = AudioToolboxError::from_status("AudioFormatGetProperty", status);
+
+        assert_eq!(
+            error.to_string(),
+            format!("AudioFormatGetProperty failed with OSStatus {status} ('lpcm')"),
+        );
+    }
+
+    #[test]
+    fn display_omits_fourcc_for_non_printable_status_errors() {
+        let error = AudioToolboxError::from_status("AudioQueueStart", -50);
+
+        assert_eq!(error.to_string(), "AudioQueueStart failed with OSStatus -50");
+    }
+}

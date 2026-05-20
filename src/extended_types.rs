@@ -309,3 +309,68 @@ pub trait AVAudioRecorderDelegate {}
 pub trait AVAudioStereoMixing: AVAudioMixing {}
 /// Marker trait mirroring `AVSpeechSynthesizerDelegate`.
 pub trait AVSpeechSynthesizerDelegate {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::c_void;
+
+    #[test]
+    fn display_type_masks_unrelated_bits() {
+        let flags = AUDIO_UNIT_PARAMETER_FLAG_DISPLAY_MASK | 0b1010;
+
+        assert_eq!(
+            get_audio_unit_parameter_display_type(flags),
+            AUDIO_UNIT_PARAMETER_FLAG_DISPLAY_MASK,
+        );
+    }
+
+    #[test]
+    fn parameter_automation_event_default_zeroes_fields() {
+        let event = AUParameterAutomationEvent::default();
+
+        assert_eq!(event.hostTime, 0);
+        assert_eq!(event.address, 0);
+        assert!(event.value.abs() < f32::EPSILON);
+        assert_eq!(event.eventType, 0);
+        assert_eq!(event.reserved, 0);
+    }
+
+    #[test]
+    fn render_event_header_default_zeroes_fields() {
+        let header = AURenderEventHeader::default();
+        let next = header.next;
+        let event_sample_time = header.eventSampleTime;
+        let event_type = header.eventType;
+        let reserved = header.reserved;
+
+        assert!(next.is_null());
+        assert_eq!(event_sample_time, 0);
+        assert_eq!(event_type, 0);
+        assert_eq!(reserved, 0);
+    }
+
+    #[test]
+    fn voice_processing_ducking_configuration_default_is_disabled() {
+        let configuration = AVAudioVoiceProcessingOtherAudioDuckingConfiguration::default();
+
+        assert!(!configuration.enableAdvancedDucking);
+        assert_eq!(configuration.duckingLevel, 0);
+    }
+
+    #[test]
+    fn opaque_handle_round_trips_raw_pointer() {
+        let raw = std::ptr::NonNull::<u8>::dangling().as_ptr().cast::<c_void>();
+        let handle = AVAudioTime::from_raw(raw);
+
+        assert_eq!(handle.as_raw(), raw);
+        assert!(!handle.is_null());
+    }
+
+    #[test]
+    fn opaque_handle_reports_null_pointer() {
+        let handle = AVAudioTime::from_raw(std::ptr::null_mut());
+
+        assert!(handle.is_null());
+    }
+}

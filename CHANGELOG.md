@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.4] - 2026-05-20
+
+- Added in-`src/` unit tests across `format`, `error`, and `extended_types` (Tier 2 quality polish), providing fast `cargo test --lib` fail-fast signal alongside the existing integration tests under `tests/`.
+
 ## [0.3.3] - 2026-05-18
 
 - chore: re-export OS primitives (Boolean, OSStatus, OSType) from apple-cf

@@ -471,3 +471,142 @@ impl AudioStreamBasicDescription {
         self.mFormatFlags
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn printable_fourcc_accepts_graphic_ascii() {
+        assert!(is_printable_fourcc(u32::from_be_bytes(*b"lpcm")));
+    }
+
+    #[test]
+    fn printable_fourcc_rejects_control_bytes() {
+        assert!(!is_printable_fourcc(0x0001_0203));
+    }
+
+    #[test]
+    fn fourcc_to_string_preserves_printable_bytes() {
+        assert_eq!(fourcc_to_string(u32::from_be_bytes(*b"lpcm")), "lpcm");
+    }
+
+    #[test]
+    fn fourcc_to_string_replaces_non_printable_bytes() {
+        assert_eq!(fourcc_to_string(0x6c00_706d), "l.pm");
+    }
+
+    #[test]
+    fn component_description_new_zeroes_flags() {
+        let description = AudioComponentDescription::new(1, 2, 3);
+
+        assert_eq!(description.component_type, 1);
+        assert_eq!(description.component_sub_type, 2);
+        assert_eq!(description.component_manufacturer, 3);
+        assert_eq!(description.component_flags, 0);
+        assert_eq!(description.component_flags_mask, 0);
+    }
+
+    #[test]
+    fn component_description_wildcard_zeroes_all_fields() {
+        assert_eq!(
+            AudioComponentDescription::wildcard(),
+            AudioComponentDescription::new(0, 0, 0),
+        );
+    }
+
+    #[test]
+    fn component_description_apple_uses_apple_manufacturer() {
+        let description = AudioComponentDescription::apple(11, 22);
+
+        assert_eq!(description.component_type, 11);
+        assert_eq!(description.component_sub_type, 22);
+        assert_eq!(
+            description.component_manufacturer,
+            AUDIO_COMPONENT_MANUFACTURER_APPLE,
+        );
+    }
+
+    #[test]
+    fn linear_pcm_f32_interleaved_has_expected_layout() {
+        let description = AudioStreamBasicDescription::linear_pcm_f32(48_000.0, 2, true);
+
+        assert!((description.mSampleRate - 48_000.0).abs() < f64::EPSILON);
+        assert_eq!(description.mFormatID, AUDIO_FORMAT_LINEAR_PCM);
+        assert_eq!(description.channel_count(), 2);
+        assert_eq!(description.bytes_per_frame(), 8);
+        assert_eq!(description.bytes_per_packet(), 8);
+        assert_eq!(description.frames_per_packet(), 1);
+        assert_eq!(description.bits_per_channel(), 32);
+        assert!(description.is_linear_pcm());
+        assert!(description.is_interleaved());
+        assert_eq!(description.interleaved_bytes_for_frames(4), Some(32));
+        assert_ne!(description.linear_pcm_flags() & LINEAR_PCM_FORMAT_FLAG_IS_FLOAT, 0);
+    }
+
+    #[test]
+    fn linear_pcm_f32_non_interleaved_sets_non_interleaved_flag() {
+        let description = AudioStreamBasicDescription::linear_pcm_f32(48_000.0, 2, false);
+
+        assert!(!description.is_interleaved());
+        assert_eq!(description.bytes_per_frame(), 4);
+        assert_ne!(
+            description.linear_pcm_flags() & AUDIO_FORMAT_FLAG_IS_NON_INTERLEAVED,
+            0,
+        );
+    }
+
+    #[test]
+    fn linear_pcm_i16_uses_signed_integer_layout() {
+        let description = AudioStreamBasicDescription::linear_pcm_i16(44_100.0, 2, true);
+
+        assert_eq!(description.bits_per_channel(), 16);
+        assert_eq!(description.bytes_per_frame(), 4);
+        assert_eq!(description.bytes_per_packet(), 4);
+        assert_ne!(
+            description.linear_pcm_flags() & AUDIO_FORMAT_FLAG_IS_SIGNED_INTEGER,
+            0,
+        );
+        assert!(description.is_linear_pcm());
+    }
+
+    #[test]
+    fn uses_packet_descriptions_when_packet_fields_are_zero() {
+        let bytes_per_packet_zero = AudioStreamBasicDescription {
+            mSampleRate: 48_000.0,
+            mFormatID: AUDIO_FORMAT_LINEAR_PCM,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 32,
+            mReserved: 0,
+        };
+        let frames_per_packet_zero = AudioStreamBasicDescription {
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 0,
+            ..bytes_per_packet_zero
+        };
+
+        assert!(bytes_per_packet_zero.uses_packet_descriptions());
+        assert!(frames_per_packet_zero.uses_packet_descriptions());
+    }
+
+    #[test]
+    fn interleaved_bytes_for_frames_returns_none_when_bytes_per_frame_is_zero() {
+        let description = AudioStreamBasicDescription {
+            mSampleRate: 48_000.0,
+            mFormatID: AUDIO_FORMAT_LINEAR_PCM,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 32,
+            mReserved: 0,
+        };
+
+        assert_eq!(description.interleaved_bytes_for_frames(10), None);
+    }
+}
