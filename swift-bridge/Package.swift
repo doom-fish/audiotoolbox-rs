@@ -16,8 +16,7 @@ let package = Package(
     targets: [
         .target(
             name: "AudioToolboxBridge",
-            path: "Sources/AudioToolboxBridge",
-            publicHeadersPath: "include"
+            path: "Sources/AudioToolboxBridge"
         )
     ]
 )

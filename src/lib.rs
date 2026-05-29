@@ -43,6 +43,7 @@ mod error;
 mod ext_audio_file;
 mod extended_types;
 mod ffi;
+mod ffi_layout;
 mod format;
 #[doc(hidden)]
 pub mod generated_c_types;
@@ -75,6 +76,7 @@ pub use debug::{
 pub use error::{AudioToolboxError, Result};
 pub use ext_audio_file::{ExtAudioFile, InterleavedAudioBuffer};
 pub use extended_types::*;
+pub use ffi_layout::verify_ffi_layout;
 pub use format::{fourcc_to_string, is_printable_fourcc, AudioFormat};
 pub use music::{MusicEventInfo, MusicEventIterator, MusicPlayer, MusicSequence, MusicTrack};
 pub use types::*;

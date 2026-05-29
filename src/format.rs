@@ -285,7 +285,12 @@ fn get_array<T: Copy>(
         ));
     }
 
-    let mut values = Vec::<T>::with_capacity(byte_size as usize / element_size);
+    let capacity = byte_size as usize / element_size;
+    // Use `MaybeUninit` for the scratch buffer: AudioToolbox fills `count`
+    // fully-initialised elements and we only ever read those. Building a
+    // `Vec<T>` over uninitialised FFI memory and `set_len`-ing it would be
+    // unsound for any `T` with validity invariants.
+    let mut buffer = Vec::<std::mem::MaybeUninit<T>>::with_capacity(capacity);
     // SAFETY: Safe FFI call to AudioFormatGetProperty with properly allocated buffer.
     // Capacity is verified above to be an integral number of T elements.
     let status = unsafe {
@@ -294,13 +299,21 @@ fn get_array<T: Copy>(
             specifier_size,
             specifier,
             &mut byte_size,
-            values.as_mut_ptr().cast(),
+            buffer.as_mut_ptr().cast(),
         )
     };
     status_to_result(operation, status)?;
 
-    // SAFETY: Result status checked above; byte_size is verified to be a multiple of element_size.
-    unsafe { values.set_len(byte_size as usize / element_size) };
+    // The call may report fewer bytes than requested; only assume-init the
+    // elements AudioToolbox actually wrote, capped at the allocated capacity.
+    let written = (byte_size as usize / element_size).min(capacity);
+    let base = buffer.as_ptr();
+    let values = (0..written)
+        // SAFETY: Status checked above; indices `0..written` were initialised
+        // by AudioToolbox and are within the allocated capacity. `T: Copy`
+        // makes reading each `MaybeUninit<T>` out of the buffer sound.
+        .map(|i| unsafe { (*base.add(i)).assume_init() })
+        .collect();
     Ok(values)
 }
 

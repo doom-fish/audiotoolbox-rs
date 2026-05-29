@@ -47,6 +47,7 @@
 )]
 
 use core::ffi::c_void;
+use core::sync::atomic::{fence, AtomicUsize, Ordering};
 
 use doom_fish_utils::panic_safe::catch_user_panic;
 use doom_fish_utils::spsc::{PopFuture as SpscPopFuture, SpscConsumer, SpscProducer, SpscRing};
@@ -73,6 +74,63 @@ fn drop_boxed_ptr<T>(raw: &mut *mut T) {
         // reconstituted at most once here before being nulled out.
         unsafe { drop(Box::from_raw(*raw)) };
         *raw = core::ptr::null_mut();
+    }
+}
+
+/// Reference-counted owner of a render-notify SPSC producer.
+///
+/// `AudioUnitRemoveRenderNotify` / `AUGraphRemoveRenderNotify` do not fence
+/// against the real-time render thread, so a callback can still be in flight
+/// when the stream is dropped. Freeing the producer immediately (as the naive
+/// `Box` handoff did) is a use-after-free: the render thread may dereference
+/// the producer pointer after the box is gone.
+///
+/// To make this sound we mirror the Arc-style retain/release pattern used by
+/// the ScreenCaptureKit stream context: the render callback takes a +1
+/// reference for the duration of each invocation, and the stream's `Drop`
+/// releases the owning reference *after* removing the notify. Whichever side
+/// drops the last reference frees the box, so the producer always outlives any
+/// callback that is actively touching it.
+struct RenderNotifyBox {
+    ref_count: AtomicUsize,
+    producer: RenderNotifyProducer,
+}
+
+impl RenderNotifyBox {
+    fn new(producer: RenderNotifyProducer) -> *mut Self {
+        Box::into_raw(Box::new(Self {
+            ref_count: AtomicUsize::new(1),
+            producer,
+        }))
+    }
+
+    /// Increment the reference count.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must point to a live `RenderNotifyBox`.
+    unsafe fn retain(ptr: *const Self) {
+        unsafe { &*ptr }.ref_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Decrement the reference count, freeing the box when it reaches zero.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must point to a live `RenderNotifyBox`; after this call the caller
+    /// must not touch `ptr` again.
+    unsafe fn release(ptr: *mut Self) {
+        if ptr.is_null() {
+            return;
+        }
+        if unsafe { &*ptr }.ref_count.fetch_sub(1, Ordering::Release) == 1 {
+            // Acquire fence pairs with the Release stores from every other
+            // holder so the freeing thread observes their writes before the
+            // box is dropped (canonical `Arc::drop` pattern; required for
+            // soundness on weakly-ordered targets such as AArch64).
+            fence(Ordering::Acquire);
+            drop(unsafe { Box::from_raw(ptr) });
+        }
     }
 }
 
@@ -150,17 +208,26 @@ unsafe extern "C" fn render_notify_cb(
     _io_data: *mut AudioBufferList1,
 ) -> i32 {
     catch_user_panic("audiotoolbox::render_notify_cb", || {
-        // SAFETY: `user_data` is the boxed producer pointer allocated in the
-        // corresponding `subscribe` constructor and stays valid until the notify
-        // callback is removed during drop.
-        let Some(sender) = (unsafe { user_data.cast::<RenderNotifyProducer>().as_ref() }) else {
+        let ptr = user_data.cast::<RenderNotifyBox>();
+        if ptr.is_null() {
             return;
-        };
+        }
+        // Take a +1 reference for the duration of this callback so the box
+        // cannot be freed by a concurrent `Drop` while we touch the producer.
+        // SAFETY: `ptr` is the `RenderNotifyBox` allocated in the corresponding
+        // `subscribe` constructor; the owning stream holds a reference until it
+        // has removed this notify and released, so `ptr` is live on entry.
+        unsafe { RenderNotifyBox::retain(ptr) };
+        // SAFETY: we just retained `ptr`, so the box is alive for this scope.
+        let producer = &unsafe { &*ptr }.producer;
         // SAFETY: the callback receives valid pointers for the duration of this
         // invocation; `render_notify_event_from_raw` defensively handles nulls.
-        let _ = sender.push_overwrite(unsafe {
+        let _ = producer.push_overwrite(unsafe {
             render_notify_event_from_raw(action_flags, time_stamp, bus_number, number_frames)
         });
+        // Release our reference; frees the box iff the stream already dropped.
+        // SAFETY: balances the `retain` above; `ptr` is not used afterwards.
+        unsafe { RenderNotifyBox::release(ptr) };
     });
     NO_ERR
 }
@@ -240,17 +307,21 @@ impl AudioUnitPropertyStream {
 /// Async stream of `AudioUnitAddRenderNotify` callbacks.
 pub struct AudioUnitRenderNotifyStream {
     inner: RenderNotifyConsumer,
-    sender_raw: *mut RenderNotifyProducer,
+    sender_raw: *mut RenderNotifyBox,
     unit: AudioUnit,
 }
 
 impl Drop for AudioUnitRenderNotifyStream {
     fn drop(&mut self) {
+        // Remove the notify first so AudioToolbox starts no *new* callbacks,
+        // then release the owning reference. An in-flight callback holds its
+        // own +1 reference, so the box (and producer) outlives it.
         let _ = unsafe {
             self.unit
                 .remove_render_notify(render_notify_cb, self.sender_raw.cast())
         };
-        drop_boxed_ptr(&mut self.sender_raw);
+        unsafe { RenderNotifyBox::release(self.sender_raw) };
+        self.sender_raw = core::ptr::null_mut();
     }
 }
 
@@ -266,11 +337,11 @@ impl AudioUnitRenderNotifyStream {
             SpscRing::<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>::with_capacity(
                 ring_capacity,
             );
-        let mut sender_raw = Box::into_raw(Box::new(sender));
+        let sender_raw = RenderNotifyBox::new(sender);
         let unit = unit.retained()?;
 
         if let Err(error) = unsafe { unit.add_render_notify(render_notify_cb, sender_raw.cast()) } {
-            drop_boxed_ptr(&mut sender_raw);
+            unsafe { RenderNotifyBox::release(sender_raw) };
             return Err(error);
         }
 
@@ -297,17 +368,21 @@ impl AudioUnitRenderNotifyStream {
 /// Async stream of `AUGraphAddRenderNotify` callbacks.
 pub struct AUGraphRenderNotifyStream {
     inner: RenderNotifyConsumer,
-    sender_raw: *mut RenderNotifyProducer,
+    sender_raw: *mut RenderNotifyBox,
     graph: AUGraph,
 }
 
 impl Drop for AUGraphRenderNotifyStream {
     fn drop(&mut self) {
+        // See `AudioUnitRenderNotifyStream::drop`: remove the notify first,
+        // then release the owning reference so an in-flight callback's own
+        // reference keeps the box alive until it finishes.
         let _ = unsafe {
             self.graph
                 .remove_render_notify(render_notify_cb, self.sender_raw.cast())
         };
-        drop_boxed_ptr(&mut self.sender_raw);
+        unsafe { RenderNotifyBox::release(self.sender_raw) };
+        self.sender_raw = core::ptr::null_mut();
     }
 }
 
@@ -323,12 +398,12 @@ impl AUGraphRenderNotifyStream {
             SpscRing::<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>::with_capacity(
                 ring_capacity,
             );
-        let mut sender_raw = Box::into_raw(Box::new(sender));
+        let sender_raw = RenderNotifyBox::new(sender);
         let graph = graph.retained()?;
 
         if let Err(error) = unsafe { graph.add_render_notify(render_notify_cb, sender_raw.cast()) }
         {
-            drop_boxed_ptr(&mut sender_raw);
+            unsafe { RenderNotifyBox::release(sender_raw) };
             return Err(error);
         }
 
