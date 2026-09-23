@@ -6,30 +6,28 @@ import CoreFoundation
 import Foundation
 
 private final class MusicSequenceBox {
-    var value: MusicSequence?
+    let value: MusicSequence
+    var graph: AUGraphBox?
 
     init(_ value: MusicSequence) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            DisposeMusicSequence(value)
-        }
+        DisposeMusicSequence(value)
     }
 }
 
 private final class MusicPlayerBox {
-    var value: MusicPlayer?
+    let value: MusicPlayer
+    var sequence: MusicSequenceBox?
 
     init(_ value: MusicPlayer) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            DisposeMusicPlayer(value)
-        }
+        DisposeMusicPlayer(value)
     }
 }
 
@@ -180,10 +178,36 @@ public func at_music_player_release(_ handle: UnsafeMutableRawPointer?) {
 
 @_cdecl("at_music_player_set_sequence")
 public func at_music_player_set_sequence(
-    _ rawPlayer: UnsafeMutableRawPointer?,
-    _ rawSequence: UnsafeMutableRawPointer?
+    _ playerHandle: UnsafeMutableRawPointer?,
+    _ sequenceHandle: UnsafeMutableRawPointer?
 ) -> Int32 {
-    MusicPlayerSetSequence(musicPlayer(from: rawPlayer), musicSequence(from: rawSequence))
+    guard let playerHandle else {
+        return Int32(kAudio_ParamError)
+    }
+    let player: MusicPlayerBox = takeUnretained(playerHandle)
+    let sequence: MusicSequenceBox? = sequenceHandle.map { takeUnretained($0) }
+    let status = MusicPlayerSetSequence(player.value, sequence?.value)
+    if status == noErr {
+        player.sequence = sequence
+    }
+    return status
+}
+
+@_cdecl("at_music_sequence_set_au_graph")
+public func at_music_sequence_set_au_graph(
+    _ sequenceHandle: UnsafeMutableRawPointer?,
+    _ graphHandle: UnsafeMutableRawPointer?
+) -> Int32 {
+    guard let sequenceHandle else {
+        return Int32(kAudio_ParamError)
+    }
+    let sequence: MusicSequenceBox = takeUnretained(sequenceHandle)
+    let graph: AUGraphBox? = graphHandle.map { takeUnretained($0) }
+    let status = MusicSequenceSetAUGraph(sequence.value, graph?.value)
+    if status == noErr {
+        sequence.graph = graph
+    }
+    return status
 }
 
 @_cdecl("at_music_player_preroll")

@@ -3,13 +3,28 @@ use crate::{
     internal::{
         cf_data_from_bytes, cf_data_to_vec, cf_release, cf_url_from_path, status_to_result,
     },
-    AUGraph, AUNode, AUPresetEvent, AudioToolboxError, CABarBeatTime, CFDictionaryRef,
-    ExtendedNoteOnEvent, MIDIChannelMessage, MIDIEndpointRef, MIDIMetaEvent, MIDINoteMessage,
-    MIDIRawData, MusicEventIteratorRef, MusicEventType, MusicEventUserData, MusicPlayerRef,
-    MusicSequenceFileFlags, MusicSequenceFileTypeId, MusicSequenceLoadFlags, MusicSequenceRef,
-    MusicSequenceType, MusicTimeStamp, MusicTrackRef, ParameterEvent, Result,
+    property::{property_byte_size, read_property, AudioProperty},
+    AUGraph, AUNode, AUPresetEvent, AudioToolboxError, AudioUnitElement, AudioUnitScope,
+    CABarBeatTime, ExtendedControlEvent, ExtendedNoteOnEvent, ExtendedTempoEvent,
+    MIDIChannelMessage, MIDIEndpointRef, MIDIMetaEvent, MIDINoteMessage, MIDIRawData,
+    MusicDeviceGroupId, MusicDeviceInstrumentId, MusicEventIteratorRef, MusicEventType,
+    MusicEventUserData, MusicPlayerRef, MusicSequenceFileFlags, MusicSequenceFileTypeId,
+    MusicSequenceLoadFlags, MusicSequenceRef, MusicSequenceType, MusicTimeStamp,
+    MusicTrackLoopInfo, MusicTrackRef, NoteParamsControlValue, ParameterEvent, Result,
+    MUSIC_EVENT_TYPE_AU_PRESET, MUSIC_EVENT_TYPE_EXTENDED_CONTROL, MUSIC_EVENT_TYPE_EXTENDED_NOTE,
+    MUSIC_EVENT_TYPE_EXTENDED_TEMPO, MUSIC_EVENT_TYPE_META, MUSIC_EVENT_TYPE_MIDI_CHANNEL_MESSAGE,
+    MUSIC_EVENT_TYPE_MIDI_NOTE_MESSAGE, MUSIC_EVENT_TYPE_MIDI_RAW_DATA, MUSIC_EVENT_TYPE_PARAMETER,
+    MUSIC_EVENT_TYPE_USER, SEQUENCE_TRACK_PROPERTY_LOOP_INFO, SEQUENCE_TRACK_PROPERTY_MUTE_STATUS,
+    SEQUENCE_TRACK_PROPERTY_OFFSET_TIME, SEQUENCE_TRACK_PROPERTY_SOLO_STATUS,
+    SEQUENCE_TRACK_PROPERTY_TIME_RESOLUTION, SEQUENCE_TRACK_PROPERTY_TRACK_LENGTH,
 };
-use std::{ffi::c_void, mem::MaybeUninit, path::Path};
+use apple_cf::cf::CFDictionary;
+use std::{
+    ffi::c_void,
+    marker::PhantomData,
+    mem::{size_of, MaybeUninit},
+    path::Path,
+};
 
 #[derive(Debug)]
 /// Owning wrapper around an AudioToolbox.framework `MusicSequence`.
@@ -18,10 +33,11 @@ pub struct MusicSequence {
     raw: MusicSequenceRef,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 /// Wrapper around an AudioToolbox.framework `MusicTrack`.
-pub struct MusicTrack {
+pub struct MusicTrack<'a> {
     raw: MusicTrackRef,
+    _sequence: PhantomData<&'a MusicSequence>,
 }
 
 #[derive(Debug)]
@@ -33,20 +49,202 @@ pub struct MusicPlayer {
 
 #[derive(Debug)]
 /// Owning wrapper around an AudioToolbox.framework `MusicEventIterator`.
-pub struct MusicEventIterator {
+pub struct MusicEventIterator<'a> {
     raw: MusicEventIteratorRef,
+    _sequence: PhantomData<&'a MusicSequence>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 /// Event snapshot returned by `MusicEventIteratorGetEventInfo`.
 pub struct MusicEventInfo {
     /// Wraps `kCVoid`.
     pub time_stamp: MusicTimeStamp,
     /// Wraps `kCVoid`.
     pub event_type: MusicEventType,
-    /// Wraps `kCVoid`.
-    pub event_data: *const c_void,
-    pub event_data_size: u32,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ExtendedNote<'a> {
+    pub instrument_id: MusicDeviceInstrumentId,
+    pub group_id: MusicDeviceGroupId,
+    pub duration: f32,
+    pub pitch: f32,
+    pub velocity: f32,
+    pub controls: &'a [NoteParamsControlValue],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MusicEvent<'a> {
+    MidiNoteMessage(MIDINoteMessage),
+    MidiChannelMessage(MIDIChannelMessage),
+    MidiRawData(&'a [u8]),
+    Meta {
+        meta_event_type: u8,
+        data: &'a [u8],
+    },
+    User(&'a [u8]),
+    ExtendedNote(ExtendedNote<'a>),
+    ExtendedControl(ExtendedControlEvent),
+    ExtendedTempo(ExtendedTempoEvent),
+    Parameter(ParameterEvent),
+    AuPreset {
+        scope: AudioUnitScope,
+        element: AudioUnitElement,
+        preset: &'a CFDictionary,
+    },
+}
+
+struct EventBytes {
+    words: Vec<u32>,
+}
+
+impl EventBytes {
+    fn new(
+        operation: &'static str,
+        fixed_size: usize,
+        header: &[u8],
+        payload: &[u8],
+    ) -> Result<Self> {
+        let used = header.len() + payload.len();
+        let total = fixed_size
+            .checked_add(payload.len())
+            .filter(|total| u32::try_from(*total).is_ok())
+            .ok_or_else(|| {
+                AudioToolboxError::message(operation, "event payload exceeds UInt32::MAX bytes")
+            })?
+            .max(used);
+        let mut words = vec![0_u32; total.div_ceil(4)];
+        let bytes = unsafe {
+            std::slice::from_raw_parts_mut(words.as_mut_ptr().cast::<u8>(), words.len() * 4)
+        };
+        bytes[..header.len()].copy_from_slice(header);
+        bytes[header.len()..used].copy_from_slice(payload);
+        Ok(Self { words })
+    }
+
+    fn from_value<T: Copy>(value: &T) -> Self {
+        let mut words = vec![0_u32; size_of::<T>().div_ceil(4)];
+        unsafe { words.as_mut_ptr().cast::<T>().write_unaligned(*value) };
+        Self { words }
+    }
+
+    fn as_ptr<T>(&self) -> *const T {
+        self.words.as_ptr().cast()
+    }
+
+    #[cfg(test)]
+    fn bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.words.as_ptr().cast(), self.words.len() * 4) }
+    }
+}
+
+fn payload_length(operation: &'static str, data: &[u8]) -> Result<[u8; 4]> {
+    u32::try_from(data.len())
+        .map(u32::to_ne_bytes)
+        .map_err(|_| {
+            AudioToolboxError::message(operation, "event payload exceeds UInt32::MAX bytes")
+        })
+}
+
+impl MusicEvent<'_> {
+    fn encode(&self, operation: &'static str) -> Result<(MusicEventType, EventBytes)> {
+        Ok(match self {
+            Self::MidiNoteMessage(message) => (
+                MUSIC_EVENT_TYPE_MIDI_NOTE_MESSAGE,
+                EventBytes::from_value(message),
+            ),
+            Self::MidiChannelMessage(message) => (
+                MUSIC_EVENT_TYPE_MIDI_CHANNEL_MESSAGE,
+                EventBytes::from_value(message),
+            ),
+            Self::MidiRawData(data) => (
+                MUSIC_EVENT_TYPE_MIDI_RAW_DATA,
+                EventBytes::new(
+                    operation,
+                    size_of::<MIDIRawData>(),
+                    &payload_length(operation, data)?,
+                    data,
+                )?,
+            ),
+            Self::Meta {
+                meta_event_type,
+                data,
+            } => {
+                let mut header = [0_u8; 8];
+                header[0] = *meta_event_type;
+                header[4..].copy_from_slice(&payload_length(operation, data)?);
+                (
+                    MUSIC_EVENT_TYPE_META,
+                    EventBytes::new(operation, size_of::<MIDIMetaEvent>(), &header, data)?,
+                )
+            }
+            Self::User(data) => (
+                MUSIC_EVENT_TYPE_USER,
+                EventBytes::new(
+                    operation,
+                    size_of::<MusicEventUserData>(),
+                    &payload_length(operation, data)?,
+                    data,
+                )?,
+            ),
+            Self::ExtendedNote(note) => {
+                let arg_count = u32::try_from(note.controls.len())
+                    .ok()
+                    .and_then(|controls| controls.checked_add(2))
+                    .ok_or_else(|| {
+                        AudioToolboxError::message(operation, "too many note controls")
+                    })?;
+                let mut header = Vec::with_capacity(24);
+                header.extend_from_slice(&note.instrument_id.to_ne_bytes());
+                header.extend_from_slice(&note.group_id.to_ne_bytes());
+                header.extend_from_slice(&note.duration.to_ne_bytes());
+                header.extend_from_slice(&arg_count.to_ne_bytes());
+                header.extend_from_slice(&note.pitch.to_ne_bytes());
+                header.extend_from_slice(&note.velocity.to_ne_bytes());
+                let controls: Vec<u8> = note
+                    .controls
+                    .iter()
+                    .flat_map(|control| {
+                        let mut bytes = [0_u8; 8];
+                        bytes[..4].copy_from_slice(&control.mID.to_ne_bytes());
+                        bytes[4..].copy_from_slice(&control.mValue.to_ne_bytes());
+                        bytes
+                    })
+                    .collect();
+                (
+                    MUSIC_EVENT_TYPE_EXTENDED_NOTE,
+                    EventBytes::new(
+                        operation,
+                        size_of::<ExtendedNoteOnEvent>(),
+                        &header,
+                        &controls,
+                    )?,
+                )
+            }
+            Self::ExtendedControl(event) => (
+                MUSIC_EVENT_TYPE_EXTENDED_CONTROL,
+                EventBytes::from_value(event),
+            ),
+            Self::ExtendedTempo(event) => (
+                MUSIC_EVENT_TYPE_EXTENDED_TEMPO,
+                EventBytes::from_value(event),
+            ),
+            Self::Parameter(event) => (MUSIC_EVENT_TYPE_PARAMETER, EventBytes::from_value(event)),
+            Self::AuPreset {
+                scope,
+                element,
+                preset,
+            } => (
+                MUSIC_EVENT_TYPE_AU_PRESET,
+                EventBytes::from_value(&AUPresetEvent {
+                    scope: *scope,
+                    element: *element,
+                    preset: preset.as_ptr().cast_const(),
+                }),
+            ),
+        })
+    }
 }
 
 impl MusicSequence {
@@ -73,27 +271,21 @@ impl MusicSequence {
     }
 
     /// Wraps `MusicSequenceNewTrack`.
-    pub fn new_track(&self) -> Result<MusicTrack> {
+    pub fn new_track(&self) -> Result<MusicTrack<'_>> {
         let mut handle = std::ptr::null_mut();
         let status =
             unsafe { ffi::music::at_music_sequence_new_track(self.raw.cast(), &raw mut handle) };
         status_to_result("MusicSequenceNewTrack", status)?;
         let raw: MusicTrackRef = unsafe { ffi::music::at_music_track_raw(handle) }.cast();
         unsafe { ffi::music::at_music_track_release(handle) };
-        if raw.is_null() {
-            return Err(AudioToolboxError::message(
-                "MusicSequenceNewTrack",
-                "framework returned a null MusicTrack",
-            ));
-        }
-        Ok(MusicTrack { raw })
+        MusicTrack::from_raw(raw, "MusicSequenceNewTrack")
     }
 
     /// Wraps `MusicSequenceDisposeTrack`.
-    pub fn dispose_track(&self, track: MusicTrack) -> Result<()> {
-        let status = unsafe {
-            ffi::music::at_music_sequence_dispose_track(self.raw.cast(), track.raw.cast())
-        };
+    pub fn dispose_track(&mut self, index: u32) -> Result<()> {
+        let track = self.track(index)?.raw;
+        let status =
+            unsafe { ffi::music::at_music_sequence_dispose_track(self.raw.cast(), track.cast()) };
         status_to_result("MusicSequenceDisposeTrack", status)
     }
 
@@ -108,28 +300,17 @@ impl MusicSequence {
     }
 
     /// Wraps `MusicSequenceGetIndTrack`.
-    pub fn track(&self, index: u32) -> Result<MusicTrack> {
-        let mut raw = MaybeUninit::<MusicTrackRef>::uninit();
+    pub fn track(&self, index: u32) -> Result<MusicTrack<'_>> {
+        let mut raw: MusicTrackRef = std::ptr::null_mut();
         let status = unsafe {
-            ffi::music::at_music_sequence_get_ind_track(
-                self.raw.cast(),
-                index,
-                raw.as_mut_ptr().cast(),
-            )
+            ffi::music::at_music_sequence_get_ind_track(self.raw.cast(), index, &raw mut raw)
         };
         status_to_result("MusicSequenceGetIndTrack", status)?;
-        let raw = unsafe { raw.assume_init() };
-        if raw.is_null() {
-            return Err(AudioToolboxError::message(
-                "MusicSequenceGetIndTrack",
-                "framework returned a null MusicTrack",
-            ));
-        }
-        Ok(MusicTrack { raw })
+        MusicTrack::from_raw(raw, "MusicSequenceGetIndTrack")
     }
 
     /// Wraps `MusicSequenceGetTrackIndex`.
-    pub fn track_index(&self, track: MusicTrack) -> Result<u32> {
+    pub fn track_index(&self, track: &MusicTrack<'_>) -> Result<u32> {
         let mut track_index = 0_u32;
         let status = unsafe {
             ffi::music::at_music_sequence_get_track_index(
@@ -143,26 +324,19 @@ impl MusicSequence {
     }
 
     /// Wraps `MusicSequenceGetTempoTrack`.
-    pub fn tempo_track(&self) -> Result<MusicTrack> {
-        let mut raw = MaybeUninit::<MusicTrackRef>::uninit();
-        let status = unsafe {
-            ffi::music::at_music_sequence_get_tempo_track(self.raw.cast(), raw.as_mut_ptr().cast())
-        };
+    pub fn tempo_track(&self) -> Result<MusicTrack<'_>> {
+        let mut raw: MusicTrackRef = std::ptr::null_mut();
+        let status =
+            unsafe { ffi::music::at_music_sequence_get_tempo_track(self.raw.cast(), &raw mut raw) };
         status_to_result("MusicSequenceGetTempoTrack", status)?;
-        let raw = unsafe { raw.assume_init() };
-        if raw.is_null() {
-            return Err(AudioToolboxError::message(
-                "MusicSequenceGetTempoTrack",
-                "framework returned a null MusicTrack",
-            ));
-        }
-        Ok(MusicTrack { raw })
+        MusicTrack::from_raw(raw, "MusicSequenceGetTempoTrack")
     }
 
     /// Wraps `MusicSequenceSetAUGraph`.
     pub fn set_au_graph(&self, graph: &AUGraph) -> Result<()> {
-        let status =
-            unsafe { ffi::music::at_music_sequence_set_au_graph(self.raw.cast(), graph.as_raw()) };
+        let status = unsafe {
+            ffi::music::at_music_sequence_set_au_graph(self.handle, graph.bridge_handle())
+        };
         status_to_result("MusicSequenceSetAUGraph", status)
     }
 
@@ -340,8 +514,15 @@ impl MusicSequence {
     }
 
     /// Wraps `MusicSequenceGetInfoDictionary`.
-    pub fn info_dictionary_raw(&self) -> CFDictionaryRef {
-        unsafe { ffi::music::at_music_sequence_get_info_dictionary(self.raw.cast()) }
+    pub fn info_dictionary(&self) -> Result<CFDictionary> {
+        let dictionary =
+            unsafe { ffi::music::at_music_sequence_get_info_dictionary(self.raw.cast()) };
+        unsafe { CFDictionary::from_raw(dictionary.cast_mut().cast()) }.ok_or_else(|| {
+            AudioToolboxError::message(
+                "MusicSequenceGetInfoDictionary",
+                "framework returned a null CFDictionaryRef",
+            )
+        })
     }
 
     /// Wraps `MusicSequenceClose`.
@@ -365,7 +546,20 @@ impl Drop for MusicSequence {
     }
 }
 
-impl MusicTrack {
+impl<'a> MusicTrack<'a> {
+    fn from_raw(raw: MusicTrackRef, operation: &'static str) -> Result<Self> {
+        if raw.is_null() {
+            return Err(AudioToolboxError::message(
+                operation,
+                "framework returned a null MusicTrack",
+            ));
+        }
+        Ok(Self {
+            raw,
+            _sequence: PhantomData,
+        })
+    }
+
     /// Returns the wrapped `MusicTrackRef`.
     pub fn as_raw(&self) -> MusicTrackRef {
         self.raw
@@ -413,25 +607,16 @@ impl MusicTrack {
     }
 
     /// Wraps `MusicTrackGetProperty`.
-    pub fn get_property_typed<T: Copy>(&self, property_id: u32) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut length =
-            u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
-            ffi::music::at_music_track_get_property(
-                self.raw.cast(),
-                property_id,
-                value.as_mut_ptr().cast(),
-                &raw mut length,
-            )
-        };
-        status_to_result("MusicTrackGetProperty", status)?;
-        Ok(unsafe { value.assume_init() })
+    pub fn get_property_typed<T: AudioProperty>(&self, property_id: u32) -> Result<T> {
+        read_property("MusicTrackGetProperty", |data, size| unsafe {
+            ffi::music::at_music_track_get_property(self.raw.cast(), property_id, data, size)
+        })
     }
 
     /// Wraps `MusicTrackSetProperty`.
-    pub fn set_property_typed<T: Copy>(&self, property_id: u32, value: &T) -> Result<()> {
-        let length = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_property_typed<T: Copy>(&self, property_id: u32, value: &T) -> Result<()> {
+        let length = property_byte_size::<T>("MusicTrackSetProperty")?;
         let status = unsafe {
             ffi::music::at_music_track_set_property(
                 self.raw.cast(),
@@ -441,6 +626,61 @@ impl MusicTrack {
             )
         };
         status_to_result("MusicTrackSetProperty", status)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn loop_info(&self) -> Result<MusicTrackLoopInfo> {
+        self.get_property_typed(SEQUENCE_TRACK_PROPERTY_LOOP_INFO)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn set_loop_info(&self, loop_info: MusicTrackLoopInfo) -> Result<()> {
+        unsafe { self.set_property_typed(SEQUENCE_TRACK_PROPERTY_LOOP_INFO, &loop_info) }
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn offset_time(&self) -> Result<MusicTimeStamp> {
+        self.get_property_typed(SEQUENCE_TRACK_PROPERTY_OFFSET_TIME)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn set_offset_time(&self, offset: MusicTimeStamp) -> Result<()> {
+        unsafe { self.set_property_typed(SEQUENCE_TRACK_PROPERTY_OFFSET_TIME, &offset) }
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn is_muted(&self) -> Result<bool> {
+        Ok(self.get_property_typed::<u8>(SEQUENCE_TRACK_PROPERTY_MUTE_STATUS)? != 0)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn set_muted(&self, muted: bool) -> Result<()> {
+        unsafe { self.set_property_typed(SEQUENCE_TRACK_PROPERTY_MUTE_STATUS, &u8::from(muted)) }
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn is_solo(&self) -> Result<bool> {
+        Ok(self.get_property_typed::<u8>(SEQUENCE_TRACK_PROPERTY_SOLO_STATUS)? != 0)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn set_solo(&self, solo: bool) -> Result<()> {
+        unsafe { self.set_property_typed(SEQUENCE_TRACK_PROPERTY_SOLO_STATUS, &u8::from(solo)) }
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn track_length(&self) -> Result<MusicTimeStamp> {
+        self.get_property_typed(SEQUENCE_TRACK_PROPERTY_TRACK_LENGTH)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn set_track_length(&self, length: MusicTimeStamp) -> Result<()> {
+        unsafe { self.set_property_typed(SEQUENCE_TRACK_PROPERTY_TRACK_LENGTH, &length) }
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn time_resolution(&self) -> Result<i16> {
+        self.get_property_typed(SEQUENCE_TRACK_PROPERTY_TIME_RESOLUTION)
     }
 
     /// Wraps `MusicTrackMoveEvents`.
@@ -475,7 +715,7 @@ impl MusicTrack {
         &self,
         source_start_time: MusicTimeStamp,
         source_end_time: MusicTimeStamp,
-        dest_track: MusicTrack,
+        dest_track: &MusicTrack<'_>,
         dest_insert_time: MusicTimeStamp,
     ) -> Result<()> {
         let status = unsafe {
@@ -495,7 +735,7 @@ impl MusicTrack {
         &self,
         source_start_time: MusicTimeStamp,
         source_end_time: MusicTimeStamp,
-        dest_track: MusicTrack,
+        dest_track: &MusicTrack<'_>,
         dest_insert_time: MusicTimeStamp,
     ) -> Result<()> {
         let status = unsafe {
@@ -520,7 +760,7 @@ impl MusicTrack {
             ffi::music::at_music_track_new_midi_note_event(
                 self.raw.cast(),
                 time_stamp,
-                std::ptr::from_ref(&note_message),
+                &raw const note_message,
             )
         };
         status_to_result("MusicTrackNewMIDINoteEvent", status)
@@ -543,31 +783,31 @@ impl MusicTrack {
     }
 
     /// Wraps `MusicTrackNewMIDIRawDataEvent`.
-    pub fn new_midi_raw_data_event(&self, time_stamp: f64, raw_data: &MIDIRawData) -> Result<()> {
+    pub fn new_midi_raw_data_event(&self, time_stamp: f64, data: &[u8]) -> Result<()> {
+        let operation = "MusicTrackNewMIDIRawDataEvent";
+        let (_, event) = MusicEvent::MidiRawData(data).encode(operation)?;
         let status = unsafe {
             ffi::music::at_music_track_new_midi_raw_data_event(
                 self.raw.cast(),
                 time_stamp,
-                std::ptr::from_ref(raw_data),
+                event.as_ptr(),
             )
         };
-        status_to_result("MusicTrackNewMIDIRawDataEvent", status)
+        status_to_result(operation, status)
     }
 
     /// Wraps `MusicTrackNewExtendedNoteEvent`.
-    pub fn new_extended_note_event(
-        &self,
-        time_stamp: f64,
-        event: &ExtendedNoteOnEvent,
-    ) -> Result<()> {
+    pub fn new_extended_note_event(&self, time_stamp: f64, note: &ExtendedNote<'_>) -> Result<()> {
+        let operation = "MusicTrackNewExtendedNoteEvent";
+        let (_, event) = MusicEvent::ExtendedNote(*note).encode(operation)?;
         let status = unsafe {
             ffi::music::at_music_track_new_extended_note_event(
                 self.raw.cast(),
                 time_stamp,
-                std::ptr::from_ref(event),
+                event.as_ptr(),
             )
         };
-        status_to_result("MusicTrackNewExtendedNoteEvent", status)
+        status_to_result(operation, status)
     }
 
     /// Wraps `MusicTrackNewParameterEvent`.
@@ -591,44 +831,55 @@ impl MusicTrack {
     }
 
     /// Wraps `MusicTrackNewMetaEvent`.
-    pub fn new_meta_event(&self, time_stamp: f64, event: &MIDIMetaEvent) -> Result<()> {
+    pub fn new_meta_event(&self, time_stamp: f64, meta_event_type: u8, data: &[u8]) -> Result<()> {
+        let operation = "MusicTrackNewMetaEvent";
+        let (_, event) = MusicEvent::Meta {
+            meta_event_type,
+            data,
+        }
+        .encode(operation)?;
         let status = unsafe {
-            ffi::music::at_music_track_new_meta_event(
-                self.raw.cast(),
-                time_stamp,
-                std::ptr::from_ref(event),
-            )
+            ffi::music::at_music_track_new_meta_event(self.raw.cast(), time_stamp, event.as_ptr())
         };
-        status_to_result("MusicTrackNewMetaEvent", status)
+        status_to_result(operation, status)
     }
 
     /// Wraps `MusicTrackNewUserEvent`.
-    pub fn new_user_event(&self, time_stamp: f64, event: &MusicEventUserData) -> Result<()> {
+    pub fn new_user_event(&self, time_stamp: f64, data: &[u8]) -> Result<()> {
+        let operation = "MusicTrackNewUserEvent";
+        let (_, event) = MusicEvent::User(data).encode(operation)?;
         let status = unsafe {
-            ffi::music::at_music_track_new_user_event(
-                self.raw.cast(),
-                time_stamp,
-                std::ptr::from_ref(event),
-            )
+            ffi::music::at_music_track_new_user_event(self.raw.cast(), time_stamp, event.as_ptr())
         };
-        status_to_result("MusicTrackNewUserEvent", status)
+        status_to_result(operation, status)
     }
 
     /// Wraps `MusicTrackNewAUPresetEvent`.
-    pub fn new_au_preset_event(&self, time_stamp: f64, event: &AUPresetEvent) -> Result<()> {
+    pub fn new_au_preset_event(
+        &self,
+        time_stamp: f64,
+        scope: AudioUnitScope,
+        element: AudioUnitElement,
+        preset: &CFDictionary,
+    ) -> Result<()> {
+        let event = AUPresetEvent {
+            scope,
+            element,
+            preset: preset.as_ptr().cast_const(),
+        };
         let status = unsafe {
             ffi::music::at_music_track_new_au_preset_event(
                 self.raw.cast(),
                 time_stamp,
-                std::ptr::from_ref(event),
+                &raw const event,
             )
         };
         status_to_result("MusicTrackNewAUPresetEvent", status)
     }
 
     /// Wraps `MusicTrackEventIterator`.
-    pub fn event_iterator(&self) -> Result<MusicEventIterator> {
-        MusicEventIterator::new(*self)
+    pub fn event_iterator(&self) -> Result<MusicEventIterator<'a>> {
+        MusicEventIterator::new(self)
     }
 }
 
@@ -657,9 +908,15 @@ impl MusicPlayer {
 
     /// Wraps `MusicPlayerSetSequence`.
     pub fn set_sequence(&self, sequence: &MusicSequence) -> Result<()> {
-        let status = unsafe {
-            ffi::music::at_music_player_set_sequence(self.raw.cast(), sequence.raw.cast())
-        };
+        let status =
+            unsafe { ffi::music::at_music_player_set_sequence(self.handle, sequence.handle) };
+        status_to_result("MusicPlayerSetSequence", status)
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn clear_sequence(&self) -> Result<()> {
+        let status =
+            unsafe { ffi::music::at_music_player_set_sequence(self.handle, std::ptr::null_mut()) };
         status_to_result("MusicPlayerSetSequence", status)
     }
 
@@ -781,11 +1038,11 @@ impl Drop for MusicPlayer {
     }
 }
 
-impl MusicEventIterator {
+impl<'a> MusicEventIterator<'a> {
     /// Wraps `NewMusicEventIterator`.
     ///
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
-    pub fn new(track: MusicTrack) -> Result<Self> {
+    pub fn new(track: &MusicTrack<'a>) -> Result<Self> {
         let mut raw = std::ptr::null_mut();
         let status =
             unsafe { ffi::music::at_music_event_iterator_new(track.raw.cast(), &raw mut raw) };
@@ -796,7 +1053,10 @@ impl MusicEventIterator {
                 "framework returned a null MusicEventIterator",
             ));
         }
-        Ok(Self { raw })
+        Ok(Self {
+            raw,
+            _sequence: PhantomData,
+        })
     }
 
     /// Returns the wrapped `MusicEventIteratorRef`.
@@ -826,7 +1086,7 @@ impl MusicEventIterator {
     pub fn event_info(&self) -> Result<MusicEventInfo> {
         let mut time_stamp = 0.0_f64;
         let mut event_type = 0_u32;
-        let mut event_data = std::ptr::null();
+        let mut event_data: *const c_void = std::ptr::null();
         let mut event_data_size = 0_u32;
         let status = unsafe {
             ffi::music::at_music_event_iterator_get_event_info(
@@ -838,24 +1098,27 @@ impl MusicEventIterator {
             )
         };
         status_to_result("MusicEventIteratorGetEventInfo", status)?;
+        let data = if event_data.is_null() || event_data_size == 0 {
+            Vec::new()
+        } else {
+            unsafe { std::slice::from_raw_parts(event_data.cast::<u8>(), event_data_size as usize) }
+                .to_vec()
+        };
         Ok(MusicEventInfo {
             time_stamp,
             event_type,
-            event_data,
-            event_data_size,
+            data,
         })
     }
 
     /// Wraps `MusicEventIteratorSetEventInfo`.
-    pub fn set_event_info<T>(&self, event_type: MusicEventType, event_data: &T) -> Result<()> {
+    pub fn set_event_info(&self, event: &MusicEvent<'_>) -> Result<()> {
+        let operation = "MusicEventIteratorSetEventInfo";
+        let (event_type, bytes) = event.encode(operation)?;
         let status = unsafe {
-            ffi::music::at_music_event_iterator_set_event_info(
-                self.raw,
-                event_type,
-                std::ptr::from_ref(event_data).cast(),
-            )
+            ffi::music::at_music_event_iterator_set_event_info(self.raw, event_type, bytes.as_ptr())
         };
-        status_to_result("MusicEventIteratorSetEventInfo", status)
+        status_to_result(operation, status)
     }
 
     /// Wraps `MusicEventIteratorSetEventTime`.
@@ -915,8 +1178,86 @@ impl MusicEventIterator {
     }
 }
 
-impl Drop for MusicEventIterator {
+impl Drop for MusicEventIterator<'_> {
     fn drop(&mut self) {
         self.release();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExtendedNote, MusicEvent};
+    use crate::{
+        NoteParamsControlValue, MUSIC_EVENT_TYPE_EXTENDED_NOTE, MUSIC_EVENT_TYPE_META,
+        MUSIC_EVENT_TYPE_MIDI_RAW_DATA, MUSIC_EVENT_TYPE_USER,
+    };
+
+    #[test]
+    fn raw_data_event_carries_its_length_and_every_byte() {
+        let payload = [0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7];
+        let (event_type, bytes) = MusicEvent::MidiRawData(&payload)
+            .encode("test")
+            .expect("encode");
+        assert_eq!(event_type, MUSIC_EVENT_TYPE_MIDI_RAW_DATA);
+        let bytes = bytes.bytes();
+        assert_eq!(&bytes[..4], &6_u32.to_ne_bytes());
+        assert_eq!(&bytes[4..10], &payload);
+        assert!(bytes.len() >= std::mem::size_of::<crate::MIDIRawData>() + payload.len());
+    }
+
+    #[test]
+    fn meta_event_places_the_length_after_the_type_byte() {
+        let text = b"a longer meta text than one byte";
+        let (event_type, bytes) = MusicEvent::Meta {
+            meta_event_type: 0x01,
+            data: text,
+        }
+        .encode("test")
+        .expect("encode");
+        assert_eq!(event_type, MUSIC_EVENT_TYPE_META);
+        let bytes = bytes.bytes();
+        assert_eq!(bytes[0], 0x01);
+        assert_eq!(
+            &bytes[4..8],
+            &u32::try_from(text.len()).unwrap().to_ne_bytes()
+        );
+        assert_eq!(&bytes[8..8 + text.len()], text);
+    }
+
+    #[test]
+    fn user_event_is_sized_from_the_slice() {
+        let (event_type, bytes) = MusicEvent::User(&[]).encode("test").expect("encode");
+        assert_eq!(event_type, MUSIC_EVENT_TYPE_USER);
+        assert_eq!(&bytes.bytes()[..4], &0_u32.to_ne_bytes());
+    }
+
+    #[test]
+    fn extended_note_arg_count_follows_the_controls() {
+        let controls = [
+            NoteParamsControlValue {
+                mID: 7,
+                mValue: 0.5,
+            },
+            NoteParamsControlValue {
+                mID: 10,
+                mValue: 0.25,
+            },
+        ];
+        let (event_type, bytes) = MusicEvent::ExtendedNote(ExtendedNote {
+            instrument_id: 1,
+            group_id: 2,
+            duration: 0.5,
+            pitch: 60.0,
+            velocity: 100.0,
+            controls: &controls,
+        })
+        .encode("test")
+        .expect("encode");
+        assert_eq!(event_type, MUSIC_EVENT_TYPE_EXTENDED_NOTE);
+        let bytes = bytes.bytes();
+        assert_eq!(&bytes[12..16], &4_u32.to_ne_bytes());
+        assert_eq!(&bytes[24..28], &7_u32.to_ne_bytes());
+        assert_eq!(&bytes[32..36], &10_u32.to_ne_bytes());
+        assert!(bytes.len() >= std::mem::size_of::<crate::ExtendedNoteOnEvent>() + 16);
     }
 }

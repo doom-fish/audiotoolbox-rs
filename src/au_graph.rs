@@ -25,6 +25,10 @@ impl AUGraph {
         self.raw
     }
 
+    pub(crate) fn bridge_handle(&self) -> *mut c_void {
+        self.handle
+    }
+
     /// Wraps `AUGraphOpen`.
     pub fn open(&self) -> Result<()> {
         let status = unsafe { ffi::au_graph::at_au_graph_open(self.handle) };

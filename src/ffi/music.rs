@@ -86,15 +86,14 @@ unsafe extern "C" {
         raw_sequence: *mut c_void,
         out_track: *mut MusicTrackRef,
     ) -> OSStatus;
-    #[link_name = "MusicSequenceSetAUGraph"]
     /// Raw binding for `MusicSequenceSetAUGraph`.
     ///
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `MusicSequenceSetAUGraph`.
     pub fn at_music_sequence_set_au_graph(
-        raw_sequence: *mut c_void,
-        raw_graph: *mut c_void,
+        sequence_handle: *mut c_void,
+        graph_handle: *mut c_void,
     ) -> OSStatus;
     #[link_name = "MusicSequenceGetAUGraph"]
     /// Raw binding for `MusicSequenceGetAUGraph`.
@@ -615,8 +614,8 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `MusicPlayerSetSequence`.
     pub fn at_music_player_set_sequence(
-        raw_player: *mut c_void,
-        raw_sequence: *mut c_void,
+        player_handle: *mut c_void,
+        sequence_handle: *mut c_void,
     ) -> OSStatus;
     #[link_name = "MusicPlayerGetSequence"]
     /// Raw binding for `MusicPlayerGetSequence`.

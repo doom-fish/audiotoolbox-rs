@@ -81,6 +81,9 @@ pub use ext_audio_file::{ExtAudioFile, InterleavedAudioBuffer};
 pub use extended_types::*;
 pub use ffi_layout::verify_ffi_layout;
 pub use format::{fourcc_to_string, is_printable_fourcc, AudioFormat};
-pub use music::{MusicEventInfo, MusicEventIterator, MusicPlayer, MusicSequence, MusicTrack};
+pub use music::{
+    ExtendedNote, MusicEvent, MusicEventInfo, MusicEventIterator, MusicPlayer, MusicSequence,
+    MusicTrack,
+};
 pub use property::AudioProperty;
 pub use types::*;
