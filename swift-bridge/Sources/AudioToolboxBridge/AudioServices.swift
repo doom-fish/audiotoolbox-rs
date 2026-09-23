@@ -72,7 +72,7 @@ public func at_system_sound_create(
     }
 
     var soundID: SystemSoundID = 0
-    let status = AudioServicesCreateSystemSoundID(url as CFURL, &soundID)
+    let status = AudioServicesCreateSystemSoundID(url, &soundID)
     if status == noErr {
         outHandle.pointee = retainObject(SystemSoundBox(soundID))
     } else {

@@ -24,3 +24,47 @@ fn audio_file_reads_glass_properties() -> Result<()> {
     assert_eq!(header_bytes.len(), 32);
     Ok(())
 }
+
+#[test]
+fn paths_are_passed_as_exact_bytes() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let dir = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"));
+    let lossy = dir.join("exact-path-\u{FFFD}.caf");
+    let _ = std::fs::remove_file(&lossy);
+    let raw = dir.join(std::ffi::OsStr::from_bytes(b"exact-path-\xff.caf"));
+    let format = audiotoolbox::AudioStreamBasicDescription::linear_pcm_i16(44_100.0, 1, true);
+
+    let created = AudioFile::create(
+        &raw,
+        audiotoolbox::AUDIO_FILE_CAF_TYPE,
+        &format,
+        audiotoolbox::AUDIO_FILE_FLAGS_ERASE_FILE,
+    );
+    assert!(created.is_err(), "the file system rejects non-UTF-8 names");
+    assert!(
+        !lossy.exists(),
+        "a lossy conversion created a different file"
+    );
+}
+
+#[test]
+fn relative_paths_resolve_against_the_working_directory() -> Result<()> {
+    let relative = std::path::Path::new("target/tmp/relative-path.caf");
+    std::fs::create_dir_all("target/tmp").expect("create target/tmp");
+    let format = audiotoolbox::AudioStreamBasicDescription::linear_pcm_i16(44_100.0, 1, true);
+    AudioFile::create(
+        relative,
+        audiotoolbox::AUDIO_FILE_CAF_TYPE,
+        &format,
+        audiotoolbox::AUDIO_FILE_FLAGS_ERASE_FILE,
+    )?
+    .close()?;
+    assert!(relative.exists());
+    assert_eq!(
+        AudioFile::open(relative)?.data_format()?.mBitsPerChannel,
+        16
+    );
+    std::fs::remove_file(relative).expect("remove the test file");
+    Ok(())
+}

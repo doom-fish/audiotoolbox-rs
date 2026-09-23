@@ -1,6 +1,7 @@
 use crate::{ffi, AudioToolboxError, CFDataRef, CFURLRef, OSStatus, Result, NO_ERR};
 use std::{
     ffi::{CStr, CString},
+    os::unix::ffi::OsStrExt,
     path::Path,
 };
 
@@ -15,7 +16,7 @@ pub fn status_to_result(operation: &'static str, status: OSStatus) -> Result<()>
 
 /// Converts a filesystem path for AudioToolbox.framework path-based APIs.
 pub fn path_to_cstring(path: &Path) -> Result<CString> {
-    CString::new(path.to_string_lossy().as_bytes()).map_err(|_| {
+    CString::new(path.as_os_str().as_bytes()).map_err(|_| {
         AudioToolboxError::message(
             "path_to_cstring",
             format!("path contains interior NULs: {}", path.display()),
@@ -74,19 +75,21 @@ pub fn cf_data_to_vec(operation: &'static str, data: CFDataRef) -> Result<Vec<u8
         ));
     }
     let length = unsafe { ffi::core::at_cf_data_get_length(data) };
-    let length = usize::try_from(length).map_err(|_| {
-        AudioToolboxError::message(operation, "framework returned an invalid CFData length")
-    })?;
     let bytes = unsafe { ffi::core::at_cf_data_get_byte_ptr(data) };
-    if bytes.is_null() && length != 0 {
-        return Err(AudioToolboxError::message(
+    let result = match usize::try_from(length) {
+        Err(_) => Err(AudioToolboxError::message(
+            operation,
+            "framework returned an invalid CFData length",
+        )),
+        Ok(length) if bytes.is_null() && length != 0 => Err(AudioToolboxError::message(
             operation,
             "framework returned a null CFData byte pointer",
-        ));
-    }
-    let vec = unsafe { std::slice::from_raw_parts(bytes, length) }.to_vec();
+        )),
+        Ok(0) => Ok(Vec::new()),
+        Ok(length) => Ok(unsafe { std::slice::from_raw_parts(bytes, length) }.to_vec()),
+    };
     unsafe { ffi::core::at_cf_release(data.cast()) };
-    Ok(vec)
+    result
 }
 
 /// Creates a `CFURLRef` for AudioToolbox.framework file APIs from a filesystem path.
@@ -116,5 +119,23 @@ pub fn cf_url_from_path(operation: &'static str, path: &Path) -> Result<CFURLRef
 pub fn cf_release(object: *const std::ffi::c_void) {
     if !object.is_null() {
         unsafe { ffi::core::at_cf_release(object) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_to_cstring;
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
+
+    #[test]
+    fn path_bytes_are_passed_through_unchanged() {
+        let raw = OsStr::from_bytes(b"/tmp/not-\xff-utf8.caf");
+        let converted = path_to_cstring(Path::new(raw)).expect("no interior NUL");
+        assert_eq!(converted.as_bytes(), raw.as_bytes());
+    }
+
+    #[test]
+    fn interior_nul_is_rejected() {
+        assert!(path_to_cstring(Path::new(OsStr::from_bytes(b"a\0b"))).is_err());
     }
 }

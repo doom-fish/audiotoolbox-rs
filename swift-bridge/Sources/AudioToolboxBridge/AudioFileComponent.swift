@@ -6,23 +6,21 @@ import Darwin
 import Foundation
 
 private final class AudioFileComponentBox {
-    var value: AudioFileComponent?
+    let value: AudioFileComponent
 
     init(_ value: AudioFileComponent) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            _ = AudioFileComponentCloseFile(value)
-            AudioComponentInstanceDispose(value)
-        }
+        _ = AudioFileComponentCloseFile(value)
+        AudioComponentInstanceDispose(value)
     }
 }
 
 private func audioFileComponent(from handle: UnsafeMutableRawPointer) -> AudioFileComponent {
     let box: AudioFileComponentBox = takeUnretained(handle)
-    return box.value!
+    return box.value
 }
 
 @_cdecl("at_audio_file_component_new_default")
@@ -75,7 +73,7 @@ public func at_audio_file_component_open(
     }
     return AudioFileComponentOpenURL(
         audioFileComponent(from: handle),
-        url as CFURL,
+        url,
         permissions,
         fileDescriptor
     )

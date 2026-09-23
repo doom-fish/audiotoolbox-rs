@@ -30,14 +30,17 @@ public func at_audio_file_open(
     _ fileTypeHint: UInt32,
     _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
 ) -> Int32 {
-    guard let outHandle, let url = fileURL(from: path) else {
+    guard let outHandle,
+          let url = fileURL(from: path),
+          let permissions = AudioFilePermissions(rawValue: permissions)
+    else {
         return Int32(kAudio_ParamError)
     }
 
     var audioFile: AudioFileID?
     let status = AudioFileOpenURL(
-        url as CFURL,
-        AudioFilePermissions(rawValue: permissions)!,
+        url,
+        permissions,
         fileTypeHint,
         &audioFile
     )
@@ -63,7 +66,7 @@ public func at_audio_file_create(
 
     var audioFile: AudioFileID?
     let status = AudioFileCreateWithURL(
-        url as CFURL,
+        url,
         fileType,
         format,
         AudioFileFlags(rawValue: flags),

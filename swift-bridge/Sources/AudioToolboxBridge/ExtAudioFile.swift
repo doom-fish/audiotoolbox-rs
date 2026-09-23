@@ -40,7 +40,7 @@ public func at_ext_audio_file_open(
     }
 
     var extAudioFile: ExtAudioFileRef?
-    let status = ExtAudioFileOpenURL(url as CFURL, &extAudioFile)
+    let status = ExtAudioFileOpenURL(url, &extAudioFile)
     if status == noErr, let extAudioFile {
         outHandle.pointee = retainObject(ExtAudioFileBox(extAudioFile))
     } else {
@@ -63,7 +63,7 @@ public func at_ext_audio_file_create(
 
     var extAudioFile: ExtAudioFileRef?
     let status = ExtAudioFileCreateWithURL(
-        url as CFURL,
+        url,
         fileType,
         format,
         nil,

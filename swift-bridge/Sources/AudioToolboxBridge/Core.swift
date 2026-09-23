@@ -56,11 +56,13 @@ func adoptContext(
     contexts.adopt(context, release)
 }
 
-func fileURL(from path: UnsafePointer<CChar>?) -> URL? {
+func fileURL(from path: UnsafePointer<CChar>?) -> CFURL? {
     guard let path else {
         return nil
     }
-    return URL(fileURLWithPath: String(cString: path))
+    return path.withMemoryRebound(to: UInt8.self, capacity: strlen(path) + 1) { bytes in
+        CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, bytes, strlen(path), false)
+    }
 }
 
 func cStringCopy(_ string: String) -> UnsafeMutablePointer<CChar>? {
