@@ -19,53 +19,8 @@ private final class AudioConverterBox {
     }
 }
 
-private struct OneShotInputState {
-    let data: UnsafePointer<UInt8>?
-    let dataLen: UInt32
-    let packetCount: UInt32
-    let packetDescriptions: UnsafePointer<AudioStreamPacketDescription>?
-    let channels: UInt32
-    var provided: Bool
-}
-
 private func audioConverter(from raw: UnsafeMutableRawPointer?) -> AudioConverterRef {
     castOpaque(raw, to: AudioConverterRef.self)
-}
-
-private func oneShotInputProc(
-    _ inAudioConverter: AudioConverterRef,
-    _ ioNumberDataPackets: UnsafeMutablePointer<UInt32>,
-    _ ioData: UnsafeMutablePointer<AudioBufferList>,
-    _ outDataPacketDescription: UnsafeMutablePointer<UnsafeMutablePointer<AudioStreamPacketDescription>?>?,
-    _ inUserData: UnsafeMutableRawPointer?
-) -> OSStatus {
-    guard let inUserData else {
-        ioNumberDataPackets.pointee = 0
-        return noErr
-    }
-
-    let state = inUserData.assumingMemoryBound(to: OneShotInputState.self)
-    if state.pointee.provided || state.pointee.dataLen == 0 {
-        ioNumberDataPackets.pointee = 0
-        return noErr
-    }
-
-    state.pointee.provided = true
-    ioNumberDataPackets.pointee = state.pointee.packetCount
-
-    let buffers = UnsafeMutableAudioBufferListPointer(ioData)
-    guard !buffers.isEmpty else {
-        return Int32(kAudio_ParamError)
-    }
-    buffers[0].mNumberChannels = state.pointee.channels
-    buffers[0].mDataByteSize = state.pointee.dataLen
-    buffers[0].mData = UnsafeMutableRawPointer(mutating: state.pointee.data)
-
-    if let outDataPacketDescription {
-        outDataPacketDescription.pointee = UnsafeMutablePointer(mutating: state.pointee.packetDescriptions)
-    }
-
-    return noErr
 }
 
 @_cdecl("at_audio_converter_new")
@@ -174,41 +129,4 @@ public func at_audio_converter_set_property(
         return Int32(kAudio_ParamError)
     }
     return AudioConverterSetProperty(audioConverter(from: rawConverter), propertyID, propertyDataSize, propertyData)
-}
-
-@_cdecl("at_audio_converter_fill_complex_buffer_once")
-public func at_audio_converter_fill_complex_buffer_once(
-    _ rawConverter: UnsafeMutableRawPointer?,
-    _ inputData: UnsafePointer<UInt8>?,
-    _ inputLen: UInt32,
-    _ packetCount: UInt32,
-    _ packetDescriptions: UnsafePointer<AudioStreamPacketDescription>?,
-    _ channels: UInt32,
-    _ ioOutputPacketSize: UnsafeMutablePointer<UInt32>?,
-    _ outOutputData: UnsafeMutablePointer<AudioBufferList>?,
-    _ outPacketDescriptions: UnsafeMutablePointer<AudioStreamPacketDescription>?
-) -> Int32 {
-    guard let ioOutputPacketSize, let outOutputData else {
-        return Int32(kAudio_ParamError)
-    }
-
-    var state = OneShotInputState(
-        data: inputData,
-        dataLen: inputLen,
-        packetCount: packetCount,
-        packetDescriptions: packetDescriptions,
-        channels: channels,
-        provided: false
-    )
-
-    return withUnsafeMutablePointer(to: &state) { statePtr in
-        AudioConverterFillComplexBuffer(
-            audioConverter(from: rawConverter),
-            oneShotInputProc,
-            statePtr,
-            ioOutputPacketSize,
-            outOutputData,
-            outPacketDescriptions
-        )
-    }
 }

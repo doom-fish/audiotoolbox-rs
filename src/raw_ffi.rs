@@ -467,9 +467,10 @@ unsafe extern "C" {
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioToolboxAudioconverterfillcomplexbuffer`.
+    #[allow(clashing_extern_declarations)]
     pub fn AudioConverterFillComplexBuffer(
         in_audio_converter: AudioConverterRef,
-        in_input_data_proc: extern "C" fn(
+        in_input_data_proc: unsafe extern "C" fn(
             AudioConverterRef,
             *mut u32,
             *mut AudioBufferList1,

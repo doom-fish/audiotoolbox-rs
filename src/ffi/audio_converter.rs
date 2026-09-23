@@ -4,6 +4,14 @@ use crate::{
 };
 use std::ffi::c_void;
 
+pub type AudioConverterInputProc = unsafe extern "C" fn(
+    *mut c_void,
+    *mut u32,
+    *mut AudioBufferList1,
+    *mut *mut AudioStreamPacketDescription,
+    *mut c_void,
+) -> OSStatus;
+
 unsafe extern "C" {
     /// Raw binding for `AudioConverterNew`.
     ///
@@ -103,20 +111,13 @@ unsafe extern "C" {
         input_data: *const AudioBufferList1,
         out_output_data: *mut AudioBufferList1,
     ) -> OSStatus;
-    /// Raw binding for `AudioConverterFillComplexBufferOnce`.
-    ///
-    /// # Safety
-    ///
-    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioConverterFillComplexBufferOnce`.
-    pub fn at_audio_converter_fill_complex_buffer_once(
+    #[link_name = "AudioConverterFillComplexBuffer"]
+    pub fn at_audio_converter_fill_complex_buffer(
         raw_converter: *mut c_void,
-        input_data: *const u8,
-        input_len: u32,
-        packet_count: u32,
-        packet_descriptions: *const AudioStreamPacketDescription,
-        channels: u32,
-        io_output_packet_size: *mut u32,
+        input_proc: AudioConverterInputProc,
+        input_proc_user_data: *mut c_void,
+        io_output_data_packet_size: *mut u32,
         out_output_data: *mut AudioBufferList1,
-        out_packet_descriptions: *mut AudioStreamPacketDescription,
+        out_packet_description: *mut AudioStreamPacketDescription,
     ) -> OSStatus;
 }

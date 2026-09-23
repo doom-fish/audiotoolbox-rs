@@ -3,9 +3,9 @@ use audiotoolbox::{AudioConversionInput, AudioConverter, AudioStreamBasicDescrip
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source = AudioStreamBasicDescription::linear_pcm_i16(44_100.0, 1, true);
     let destination = AudioStreamBasicDescription::linear_pcm_f32(44_100.0, 1, true);
-    let converter = AudioConverter::new(&source, &destination)?;
+    let mut converter = AudioConverter::new(&source, &destination)?;
     let input_bytes = [0_u8, 0, 255, 127, 0, 128, 0, 0];
-    let output = converter.fill_complex_buffer_once(
+    let output = converter.fill_complex_buffer(
         AudioConversionInput {
             data: &input_bytes,
             packet_count: 4,
@@ -15,10 +15,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         4,
     )?;
 
+    let tail = converter.finish(4)?;
+
     println!(
-        "converted_packets={} output_bytes={}",
+        "converted_packets={} output_bytes={} tail_packets={}",
         output.packet_count,
-        output.data.len()
+        output.data.len(),
+        tail.packet_count
     );
     Ok(())
 }
