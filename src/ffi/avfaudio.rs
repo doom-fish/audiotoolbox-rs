@@ -243,7 +243,7 @@ unsafe extern "C" {
     pub fn at_av_audio_pcm_buffer_set_frame_length(
         handle: *mut c_void,
         frame_length: AVAudioFrameCount,
-    );
+    ) -> bool;
     /// Raw binding for `AVAudioPCMBufferStride`.
     ///
     /// # Safety

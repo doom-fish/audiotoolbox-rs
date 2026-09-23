@@ -152,7 +152,7 @@ impl AVAudioNode {
         } else {
             Err(AudioToolboxError::message(
                 "AVAudioNodeInputFormatForBus",
-                "framework returned a null AVAudioFormat",
+                format!("bus {bus} is out of range for this node"),
             ))
         }
     }
@@ -168,7 +168,7 @@ impl AVAudioNode {
         } else {
             Err(AudioToolboxError::message(
                 "AVAudioNodeOutputFormatForBus",
-                "framework returned a null AVAudioFormat",
+                format!("bus {bus} is out of range for this node"),
             ))
         }
     }
@@ -382,9 +382,19 @@ impl AVAudioPCMBuffer {
     }
 
     /// Wraps `AVAudioPCMBufferSetFrameLength`.
-    pub fn set_frame_length(&self, frame_length: AVAudioFrameCount) {
-        unsafe {
-            ffi::avfaudio::at_av_audio_pcm_buffer_set_frame_length(self.handle, frame_length);
+    pub fn set_frame_length(&self, frame_length: AVAudioFrameCount) -> Result<()> {
+        if unsafe {
+            ffi::avfaudio::at_av_audio_pcm_buffer_set_frame_length(self.handle, frame_length)
+        } {
+            Ok(())
+        } else {
+            Err(AudioToolboxError::message(
+                "AVAudioPCMBufferSetFrameLength",
+                format!(
+                    "frame length {frame_length} exceeds the frame capacity {}",
+                    self.frame_capacity()
+                ),
+            ))
         }
     }
 

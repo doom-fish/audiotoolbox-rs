@@ -29,8 +29,14 @@ fn avfaudio_format_and_node_smoke_test() -> Result<()> {
 
     assert_eq!(buffer.frame_capacity(), 256);
     assert_eq!(buffer.frame_length(), 0);
-    buffer.set_frame_length(128);
+    buffer.set_frame_length(128)?;
     assert_eq!(buffer.frame_length(), 128);
+    assert!(buffer.set_frame_length(257).is_err());
+    assert_eq!(buffer.frame_length(), 128);
+    buffer.set_frame_length(256)?;
+    assert_eq!(buffer.frame_length(), 256);
+    assert!(output.input_format(u64::MAX).is_err());
+    assert!(output.output_format(1_000).is_err());
     assert_eq!(buffer.format()?.channel_count(), standard.channel_count());
     assert!(buffer.stride() >= 1);
 

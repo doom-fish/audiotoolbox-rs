@@ -189,10 +189,14 @@ public func at_av_audio_node_input_format(
     _ bus: UInt64,
     _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
 ) -> Bool {
-    guard let handle, let outHandle else {
+    guard let handle, let outHandle, let busIndex = AVAudioNodeBus(exactly: bus) else {
         return false
     }
-    let format = avAudioNodeBox(from: handle).value.inputFormat(forBus: AVAudioNodeBus(bus))
+    let node = avAudioNodeBox(from: handle).value
+    guard busIndex < node.numberOfInputs else {
+        return false
+    }
+    let format = node.inputFormat(forBus: busIndex)
     outHandle.pointee = retainObject(AVAudioFormatBox(format))
     return true
 }
@@ -203,10 +207,14 @@ public func at_av_audio_node_output_format(
     _ bus: UInt64,
     _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
 ) -> Bool {
-    guard let handle, let outHandle else {
+    guard let handle, let outHandle, let busIndex = AVAudioNodeBus(exactly: bus) else {
         return false
     }
-    let format = avAudioNodeBox(from: handle).value.outputFormat(forBus: AVAudioNodeBus(bus))
+    let node = avAudioNodeBox(from: handle).value
+    guard busIndex < node.numberOfOutputs else {
+        return false
+    }
+    let format = node.outputFormat(forBus: busIndex)
     outHandle.pointee = retainObject(AVAudioFormatBox(format))
     return true
 }
@@ -406,11 +414,16 @@ public func at_av_audio_pcm_buffer_frame_length(_ handle: UnsafeMutableRawPointe
 public func at_av_audio_pcm_buffer_set_frame_length(
     _ handle: UnsafeMutableRawPointer?,
     _ frameLength: UInt32
-) {
+) -> Bool {
     guard let handle else {
-        return
+        return false
     }
-    avAudioPCMBufferBox(from: handle).value.frameLength = frameLength
+    let buffer = avAudioPCMBufferBox(from: handle).value
+    guard frameLength <= buffer.frameCapacity else {
+        return false
+    }
+    buffer.frameLength = frameLength
+    return true
 }
 
 @_cdecl("at_av_audio_pcm_buffer_stride")
@@ -418,7 +431,7 @@ public func at_av_audio_pcm_buffer_stride(_ handle: UnsafeMutableRawPointer?) ->
     guard let handle else {
         return 0
     }
-    return UInt32(avAudioPCMBufferBox(from: handle).value.stride)
+    return UInt32(clamping: avAudioPCMBufferBox(from: handle).value.stride)
 }
 
 @_cdecl("at_av_audio_sequencer_new")
