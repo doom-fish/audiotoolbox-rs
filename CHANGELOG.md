@@ -1,5 +1,114 @@
 # Changelog
 
+All notable changes to `audiotoolbox` are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.5.0] - Unreleased
+
+### Security
+
+- Render-notify and property-listener streams could free their context while
+  an audio-thread callback was still running (use-after-free and double free
+  on the render thread). The context is now kept alive by the audio unit or
+  graph until it is disposed, and the ring behind it is freed once no callback
+  is inside a push.
+- `fill_complex_buffer_once` let the converter keep reading the caller's input
+  slice after the call returned (use-after-free on the next call).
+- Typed property reads accepted any `T: Copy`, producing invalid `bool`/enum
+  values or uninitialized bytes; `MusicTrack` copies outlived their sequence;
+  the MIDI raw-data, meta, user and extended-note events made the framework
+  read past the Rust object; `render` and `convert_complex_buffer` wrote
+  through caller-built `AudioBufferList` pointers.
+- Packet reads allocated `max_packet_size × packet_count` taken from the file
+  before checking it, so a crafted file could force a huge allocation.
+- `AudioQueueBufferHandle` read freed memory after its queue was dropped.
+
+### Fixed
+
+- Chunked conversion no longer ends the stream on every call, which flushed
+  encoders and dropped all later input.
+- Setting `frameLength` above `frameCapacity`, or asking a node for a bus it
+  does not have, raised an Objective-C exception that aborted the process.
+- `write_packets` checks the packet count against the descriptions and every
+  description against the payload; `ExtAudioFile::write_interleaved` no longer
+  reads past the buffer.
+- `AudioFile_SMPTE_Time` had the 24-byte `SMPTETime` layout instead of its
+  8-byte SDK layout, which also broke `AudioFileMarker`, `AudioFileRegion` and
+  their lists.
+- `MusicSequence::set_au_graph` and `MusicPlayer::set_sequence` now retain the
+  graph and the sequence.
+- Apple's DLS synth crashed when instances were initialized or disposed on
+  several threads at once; the crate serializes audio unit, graph and music
+  player lifecycle calls.
+- Non-UTF-8 paths no longer turn into a different file name, `CFData` is
+  released on error paths, and the Swift bridge no longer traps on an unknown
+  file permission value or force-unwraps its handles.
+- `AudioFileStream::parse_bytes` used to throw away the parsed packets.
+- `AudioFormat::balance_fade` returned the specifier overwritten with
+  coefficients; the coefficients are now returned as a `Vec<f32>`.
+- Coverage documents no longer count method-less placeholder handles as
+  verified, and say what their numbers measure.
+- The 0.4.x hardening (sound batch reads in `AudioFormat`, ABI layout
+  assertions) that had not been released is part of this release.
+
+### Changed
+
+- **Breaking:** `get_property_typed` / `get_property_array` require the new
+  `AudioProperty` trait and check the returned size; `set_property_typed`,
+  `AudioFile::set_property_bytes`, `global_info_size`, `global_info_bytes`,
+  `AudioFormat::property_info` and `AUGraph::set_node_input_callback` are
+  `unsafe`.
+- **Breaking:** `AudioUnit::render` and `convert_complex_buffer` take
+  `OwnedAudioBufferList`.
+- **Breaking:** `AudioConverter::fill_complex_buffer_once(&self)` is now
+  `fill_complex_buffer(&mut self)`, plus `finish` to end the stream;
+  `AudioConverter::reset` takes `&mut self`; `BorrowedAudioConverter` no longer
+  has the fill method.
+- **Breaking:** `MusicTrack<'a>` and `MusicEventIterator<'a>` borrow their
+  sequence and are not `Copy`; `dispose_track` takes `&mut self` and an index;
+  `track_index`, `copy_insert` and `merge` take `&MusicTrack`;
+  `new_midi_raw_data_event`, `new_meta_event`, `new_user_event` and
+  `new_extended_note_event` take slices; `new_au_preset_event` takes a
+  `CFDictionary`; `set_event_info` takes a `MusicEvent`; `MusicEventInfo` has
+  owned `data` instead of a pointer.
+- **Breaking:** `AudioFormat::format_list` / `output_format_list` take the
+  description and magic cookie; `AudioComponent::validate` takes
+  `Option<&CFDictionary>`.
+- **Breaking:** `AudioQueueBufferHandle<'q>` borrows its queue and frees its
+  buffer on drop; `AudioFileStream::parse_bytes` returns `PacketData`;
+  `AVAudioPCMBuffer::set_frame_length` returns `Result`;
+  `AURenderCallbackStruct::inputProc` is an `Option`; `AudioFileSmpteTime` is a
+  struct; `AudioToolboxDebugObject` is sealed.
+- **Breaking:** the async property stream uses the same lock-free ring as the
+  render-notify streams, so `next()` returns a `PopFuture`.
+- `apple-cf` 0.11 and `doom-fish-utils` 0.4.1 (now a regular dependency);
+  `rust-version` is 1.82.
+
+### Added
+
+- `AudioProperty`, `OwnedAudioBufferList`, `AudioConverter::finish`.
+- `AudioQueue::new_output_with_callback`, `new_input_with_callback`,
+  `enqueue_buffer`, `allocate_buffer_with_packet_descriptions`,
+  `set_offline_render_format` and `offline_render`, with
+  `AudioQueueOutputBuffer` / `AudioQueueInputBuffer` views.
+- `AudioFileStream::seek`, `SystemSound::play_with_completion` and
+  `play_alert_with_completion`.
+- `MusicEvent`, `ExtendedNote`, typed `MusicTrack` accessors for the loop,
+  offset, mute, solo, length and time-resolution properties, and
+  `MusicPlayer::clear_sequence`.
+- `AudioFormat::balance_fade_coefficients` and `panning_matrix`.
+- `CAShow` support for `AUGraph` and `MusicSequence`.
+
+### Removed
+
+- `fill_complex_buffer_once`, `AudioFormat::balance_fade` and
+  `panning_matrix_size`, `AudioComponent::copy_configuration_info_raw` and
+  `validate_raw` (now `copy_configuration_info` returning an owned
+  `CFDictionary`, and `validate`), and `MusicSequence::info_dictionary_raw`
+  (now `info_dictionary`).
+
 ## [0.4.0] - 2026-05-20
 
 ### Added

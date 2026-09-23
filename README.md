@@ -30,14 +30,14 @@ The original raw C surface is still available behind the `raw-ffi` Cargo feature
 
 ```toml
 [dependencies]
-audiotoolbox = "0.4.0"
+audiotoolbox = "0.5.0"
 ```
 
 To reach the legacy raw C bindings as well:
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.4.0", features = ["raw-ffi"] }
+audiotoolbox = { version = "0.5.0", features = ["raw-ffi"] }
 ```
 
 ## Quick start
@@ -83,7 +83,7 @@ Enable the `async` feature for executor-agnostic wrappers over property listener
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.4.0", features = ["async"] }
+audiotoolbox = { version = "0.5.0", features = ["async"] }
 ```
 
 ```rust,no_run
