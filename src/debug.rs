@@ -1,52 +1,45 @@
 use crate::{
-    ffi, AudioComponent, AudioComponentInstance, AudioConverter, AudioFile, AudioToolboxError,
-    BorrowedAudioConverter, ExtAudioFile, Result,
+    ffi, AUGraph, AudioComponent, AudioComponentInstance, AudioConverter, AudioFile,
+    AudioToolboxError, BorrowedAudioConverter, ExtAudioFile, MusicSequence, Result,
 };
 use std::{
     ffi::{c_void, CString},
     io::Error,
 };
 
+mod sealed {
+    pub trait Sealed {}
+}
+
 /// Trait implemented by objects accepted by `CAShow` and `CAShowFile`.
-pub trait AudioToolboxDebugObject {
+pub trait AudioToolboxDebugObject: sealed::Sealed {
     fn debug_ptr(&self) -> *mut c_void;
 }
 
-impl AudioToolboxDebugObject for AudioFile {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
+macro_rules! debug_object {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl sealed::Sealed for $ty {}
+
+            impl AudioToolboxDebugObject for $ty {
+                fn debug_ptr(&self) -> *mut c_void {
+                    self.as_raw().cast()
+                }
+            }
+        )+
+    };
 }
 
-impl AudioToolboxDebugObject for ExtAudioFile {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
-}
-
-impl AudioToolboxDebugObject for AudioConverter {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
-}
-
-impl AudioToolboxDebugObject for BorrowedAudioConverter<'_> {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
-}
-
-impl AudioToolboxDebugObject for AudioComponent {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
-}
-
-impl AudioToolboxDebugObject for AudioComponentInstance {
-    fn debug_ptr(&self) -> *mut c_void {
-        self.as_raw().cast()
-    }
-}
+debug_object!(
+    AudioFile,
+    ExtAudioFile,
+    AudioConverter,
+    BorrowedAudioConverter<'_>,
+    AudioComponent,
+    AudioComponentInstance,
+    AUGraph,
+    MusicSequence,
+);
 
 /// Wraps `CAShow`.
 pub fn ca_show(object: &impl AudioToolboxDebugObject) {

@@ -1,14 +1,15 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result},
-    AudioFileId, AudioFilePermissions, AudioFilePropertyId, AudioFileTypeId,
+    property::{property_byte_size, read_property, read_property_array},
+    AudioFileId, AudioFilePermissions, AudioFilePropertyId, AudioFileTypeId, AudioProperty,
     AudioStreamBasicDescription, AudioStreamPacketDescription, AudioToolboxError, Result,
     AUDIO_FILE_PROPERTY_AUDIO_DATA_BYTE_COUNT, AUDIO_FILE_PROPERTY_AUDIO_DATA_PACKET_COUNT,
     AUDIO_FILE_PROPERTY_DATA_FORMAT, AUDIO_FILE_PROPERTY_DATA_OFFSET,
     AUDIO_FILE_PROPERTY_ESTIMATED_DURATION, AUDIO_FILE_PROPERTY_MAGIC_COOKIE_DATA,
     AUDIO_FILE_PROPERTY_MAXIMUM_PACKET_SIZE, AUDIO_FILE_READ_PERMISSION,
 };
-use std::{ffi::c_void, mem::MaybeUninit, path::Path};
+use std::{ffi::c_void, path::Path};
 
 #[derive(Debug, Clone)]
 /// Rust-owned packet payload returned by `AudioFileReadPacketData` and `AudioFileReadPackets`.
@@ -354,15 +355,17 @@ impl AudioFile {
     }
 
     /// Wraps `AudioFileGetGlobalInfoSize`.
-    pub fn global_info_size<T>(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn global_info_size<T>(
         property_id: AudioFilePropertyId,
         specifier: Option<&T>,
     ) -> Result<u32> {
+        let specifier_size = property_byte_size::<T>("AudioFileGetGlobalInfoSize")?;
         let (specifier_ptr, specifier_size) =
             specifier.map_or((std::ptr::null(), 0), |specifier| {
                 (
                     std::ptr::from_ref(specifier).cast::<c_void>(),
-                    u32::try_from(std::mem::size_of::<T>()).expect("specifier fits in u32"),
+                    specifier_size,
                 )
             });
         let mut size = 0_u32;
@@ -379,18 +382,20 @@ impl AudioFile {
     }
 
     /// Wraps `AudioFileGetGlobalInfo`.
-    pub fn global_info_bytes<T>(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn global_info_bytes<T>(
         property_id: AudioFilePropertyId,
         specifier: Option<&T>,
     ) -> Result<Vec<u8>> {
+        let specifier_size = property_byte_size::<T>("AudioFileGetGlobalInfo")?;
         let (specifier_ptr, specifier_size) =
             specifier.map_or((std::ptr::null(), 0), |specifier| {
                 (
                     std::ptr::from_ref(specifier).cast::<c_void>(),
-                    u32::try_from(std::mem::size_of::<T>()).expect("specifier fits in u32"),
+                    specifier_size,
                 )
             });
-        let mut size = Self::global_info_size(property_id, specifier)?;
+        let mut size = unsafe { Self::global_info_size(property_id, specifier) }?;
         let mut bytes = vec![0_u8; size as usize];
         let status = unsafe {
             ffi::audio_file::at_audio_file_get_global_info(
@@ -429,7 +434,8 @@ impl AudioFile {
     }
 
     /// Wraps `AudioFileSetProperty`.
-    pub fn set_property_bytes(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_property_bytes(
         &self,
         property_id: AudioFilePropertyId,
         bytes: &[u8],
@@ -450,37 +456,26 @@ impl AudioFile {
     }
 
     /// Wraps `AudioFileGetPropertyArray`.
-    pub fn get_property_array<T: Copy>(
+    pub fn get_property_array<T: AudioProperty>(
         &self,
         property_id: AudioFilePropertyId,
         operation: &'static str,
     ) -> Result<Vec<T>> {
-        let bytes = self.get_property_bytes(property_id, operation)?;
-        let element_size = std::mem::size_of::<T>();
-        if element_size == 0 || bytes.len() % element_size != 0 {
-            return Err(AudioToolboxError::message(
-                operation,
-                "property payload is not an integral number of elements",
-            ));
-        }
-        let (prefix, values, suffix) = unsafe { bytes.align_to::<T>() };
-        if !prefix.is_empty() || !suffix.is_empty() {
-            return Err(AudioToolboxError::message(
-                operation,
-                "property payload is not aligned for the requested element type",
-            ));
-        }
-        Ok(values.to_vec())
+        let info = self.property_info(property_id)?;
+        read_property_array(operation, info.data_size, |data, size| unsafe {
+            ffi::audio_file::at_audio_file_get_property(self.raw.cast(), property_id, size, data)
+        })
     }
 
     /// Wraps `AudioFileSetProperty`.
-    pub fn set_property_typed<T: Copy>(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_property_typed<T: Copy>(
         &self,
         property_id: AudioFilePropertyId,
         value: &T,
         operation: &'static str,
     ) -> Result<()> {
-        let size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
+        let size = property_byte_size::<T>(operation)?;
         let status = unsafe {
             ffi::audio_file::at_audio_file_set_property(
                 self.raw.cast(),
@@ -527,6 +522,14 @@ impl AudioFile {
                 "packet payload exceeds UInt32::MAX bytes",
             )
         })?;
+        let format = self.data_format()?;
+        validate_packets(
+            "AudioFileWritePackets",
+            &format,
+            data.len(),
+            packet_count,
+            packet_descriptions,
+        )?;
         let mut io_num_packets = packet_count;
         let packet_description_ptr =
             packet_descriptions.map_or(std::ptr::null(), <[AudioStreamPacketDescription]>::as_ptr);
@@ -546,23 +549,14 @@ impl AudioFile {
     }
 
     /// Wraps `AudioFileGetProperty`.
-    pub fn get_property_typed<T: Copy>(
+    pub fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: AudioFilePropertyId,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
-            ffi::audio_file::at_audio_file_get_property(
-                self.raw.cast(),
-                property_id,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
-            )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        read_property(operation, |data, size| unsafe {
+            ffi::audio_file::at_audio_file_get_property(self.raw.cast(), property_id, size, data)
+        })
     }
 
     fn read_packet_data_inner(
@@ -580,24 +574,19 @@ impl AudioFile {
             });
         }
 
+        let operation = if use_modern_api {
+            "AudioFileReadPacketData"
+        } else {
+            "AudioFileReadPackets"
+        };
         let format = self.data_format()?;
         let max_packet_size = self
             .maximum_packet_size()
             .unwrap_or_else(|_| format.mBytesPerPacket.max(1));
-        let mut bytes =
-            vec![0_u8; (max_packet_size as usize).saturating_mul(packet_count as usize)];
+        let mut io_num_bytes = packet_buffer_size(operation, max_packet_size, packet_count)?;
+        let mut bytes = vec![0_u8; io_num_bytes as usize];
         let mut packet_descriptions =
             vec![AudioStreamPacketDescription::default(); packet_count as usize];
-        let mut io_num_bytes = u32::try_from(bytes.len()).map_err(|_| {
-            AudioToolboxError::message(
-                if use_modern_api {
-                    "AudioFileReadPacketData"
-                } else {
-                    "AudioFileReadPackets"
-                },
-                "requested packet buffer exceeds UInt32::MAX bytes",
-            )
-        })?;
         let mut io_num_packets = packet_count;
         let packet_description_ptr = if format.uses_packet_descriptions() {
             packet_descriptions.as_mut_ptr()
@@ -628,14 +617,7 @@ impl AudioFile {
                 )
             }
         };
-        status_to_result(
-            if use_modern_api {
-                "AudioFileReadPacketData"
-            } else {
-                "AudioFileReadPackets"
-            },
-            status,
-        )?;
+        status_to_result(operation, status)?;
 
         bytes.truncate(io_num_bytes as usize);
         if format.uses_packet_descriptions() {
@@ -663,5 +645,137 @@ impl AudioFile {
 impl Drop for AudioFile {
     fn drop(&mut self) {
         self.release();
+    }
+}
+
+fn packet_buffer_size(
+    operation: &'static str,
+    max_packet_size: u32,
+    packet_count: u32,
+) -> Result<u32> {
+    max_packet_size.checked_mul(packet_count).ok_or_else(|| {
+        AudioToolboxError::message(
+            operation,
+            format!(
+                "{packet_count} packets of up to {max_packet_size} bytes exceed UInt32::MAX bytes"
+            ),
+        )
+    })
+}
+
+pub(crate) fn validate_packets(
+    operation: &'static str,
+    format: &AudioStreamBasicDescription,
+    data_len: usize,
+    packet_count: u32,
+    packet_descriptions: Option<&[AudioStreamPacketDescription]>,
+) -> Result<()> {
+    match packet_descriptions {
+        Some(descriptions) => {
+            let described = descriptions.get(..packet_count as usize).ok_or_else(|| {
+                AudioToolboxError::message(
+                    operation,
+                    format!(
+                        "packet_count is {packet_count} but only {} packet descriptions were supplied",
+                        descriptions.len()
+                    ),
+                )
+            })?;
+            for (index, description) in described.iter().enumerate() {
+                let end = u64::try_from(description.mStartOffset)
+                    .ok()
+                    .and_then(|start| start.checked_add(u64::from(description.mDataByteSize)));
+                if end.is_none_or(|end| end > data_len as u64) {
+                    return Err(AudioToolboxError::message(
+                        operation,
+                        format!(
+                            "packet description {index} lies outside the {data_len}-byte payload"
+                        ),
+                    ));
+                }
+            }
+        }
+        None if format.uses_packet_descriptions() => {
+            return Err(AudioToolboxError::message(
+                operation,
+                "this format has variable-size packets and needs packet descriptions",
+            ));
+        }
+        None => {
+            let needed = u64::from(format.mBytesPerPacket) * u64::from(packet_count);
+            if needed > data_len as u64 {
+                return Err(AudioToolboxError::message(
+                    operation,
+                    format!(
+                        "{packet_count} packets of {} bytes need {needed} bytes but the payload has {data_len}",
+                        format.mBytesPerPacket
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{packet_buffer_size, validate_packets};
+    use crate::{
+        AudioStreamBasicDescription, AudioStreamPacketDescription, AUDIO_FORMAT_MPEG4_AAC,
+    };
+
+    fn vbr_format() -> AudioStreamBasicDescription {
+        AudioStreamBasicDescription {
+            mSampleRate: 44_100.0,
+            mFormatID: AUDIO_FORMAT_MPEG4_AAC,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1024,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 2,
+            mBitsPerChannel: 0,
+            mReserved: 0,
+        }
+    }
+
+    fn description(start: i64, size: u32) -> AudioStreamPacketDescription {
+        AudioStreamPacketDescription {
+            mStartOffset: start,
+            mVariableFramesInPacket: 0,
+            mDataByteSize: size,
+        }
+    }
+
+    #[test]
+    fn packet_buffer_size_rejects_an_overflowing_product() {
+        assert_eq!(packet_buffer_size("test", 4096, 16).ok(), Some(65_536));
+        assert!(packet_buffer_size("test", u32::MAX, 2).is_err());
+        assert!(packet_buffer_size("test", 0x0100_0000, 0x0100).is_err());
+    }
+
+    #[test]
+    fn write_packets_needs_a_description_per_packet() {
+        let format = vbr_format();
+        let descriptions = [description(0, 4), description(4, 4)];
+        assert!(validate_packets("test", &format, 8, 2, Some(&descriptions)).is_ok());
+        assert!(validate_packets("test", &format, 8, 3, Some(&descriptions)).is_err());
+        assert!(validate_packets("test", &format, 8, 1, None).is_err());
+    }
+
+    #[test]
+    fn write_packets_rejects_descriptions_outside_the_payload() {
+        let format = vbr_format();
+        assert!(validate_packets("test", &format, 8, 1, Some(&[description(6, 4)])).is_err());
+        assert!(validate_packets("test", &format, 8, 1, Some(&[description(-1, 1)])).is_err());
+        assert!(
+            validate_packets("test", &format, 8, 1, Some(&[description(i64::MAX, 4)])).is_err()
+        );
+    }
+
+    #[test]
+    fn constant_bitrate_packets_must_fit_the_payload() {
+        let format = AudioStreamBasicDescription::linear_pcm_i16(44_100.0, 2, true);
+        assert!(validate_packets("test", &format, 16, 4, None).is_ok());
+        assert!(validate_packets("test", &format, 16, 5, None).is_err());
     }
 }

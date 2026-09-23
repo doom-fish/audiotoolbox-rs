@@ -171,7 +171,8 @@ impl AUGraph {
     }
 
     /// Wraps `AUGraphSetNodeInputCallback`.
-    pub fn set_node_input_callback(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_node_input_callback(
         &self,
         dest_node: AUNode,
         dest_input_number: u32,

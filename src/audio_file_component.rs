@@ -1,11 +1,12 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result, string_from_owned_ptr},
+    property::{read_property, AudioProperty},
     AudioFilePermissions, AudioFilePropertyId, AudioFileTypeId, AudioStreamBasicDescription,
     AudioToolboxError, PropertyInfo, Result, AUDIO_FILE_PROPERTY_DATA_FORMAT,
     AUDIO_FILE_READ_PERMISSION,
 };
-use std::{fs::OpenOptions, mem::MaybeUninit, os::fd::IntoRawFd, path::Path};
+use std::{fs::OpenOptions, os::fd::IntoRawFd, path::Path};
 
 #[derive(Debug)]
 /// Wraps `AudioFileComponent`.
@@ -17,8 +18,9 @@ impl AudioFileComponent {
     /// Wraps `AudioFileComponentNew`.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status =
-            unsafe { ffi::audio_file_component::at_audio_file_component_new_default(&raw mut handle) };
+        let status = unsafe {
+            ffi::audio_file_component::at_audio_file_component_new_default(&raw mut handle)
+        };
         status_to_result("AudioFileComponentNew", status)?;
         Self::from_handle(handle, "AudioFileComponentNew")
     }
@@ -116,23 +118,19 @@ impl AudioFileComponent {
         string_from_owned_ptr("AudioFileComponentGetGlobalInfo(file type name)", ptr)
     }
 
-    fn get_property_typed<T: Copy>(
+    fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: AudioFilePropertyId,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
+        read_property(operation, |data, size| unsafe {
             ffi::audio_file_component::at_audio_file_component_get_property(
                 self.handle,
                 property_id,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
+                size,
+                data,
             )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        })
     }
 
     fn from_handle(handle: *mut std::ffi::c_void, operation: &'static str) -> Result<Self> {

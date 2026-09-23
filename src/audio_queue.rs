@@ -1,10 +1,12 @@
 use crate::{
-    ffi, internal::status_to_result, AudioQueueBufferRef, AudioQueueParameterId,
-    AudioQueueParameterValue, AudioQueuePropertyId, AudioQueueRef, AudioStreamBasicDescription,
-    AudioToolboxError, Result, AUDIO_QUEUE_PARAM_VOLUME, AUDIO_QUEUE_PROPERTY_IS_RUNNING,
+    ffi,
+    internal::status_to_result,
+    property::{read_property, AudioProperty},
+    AudioQueueBufferRef, AudioQueueParameterId, AudioQueueParameterValue, AudioQueuePropertyId,
+    AudioQueueRef, AudioStreamBasicDescription, AudioToolboxError, Result,
+    AUDIO_QUEUE_PARAM_VOLUME, AUDIO_QUEUE_PROPERTY_IS_RUNNING,
     AUDIO_QUEUE_PROPERTY_STREAM_DESCRIPTION,
 };
-use std::mem::MaybeUninit;
 
 #[derive(Debug)]
 /// Owning wrapper around an AudioToolbox.framework `AudioQueueRef`.
@@ -26,7 +28,8 @@ impl AudioQueue {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_output(format: &AudioStreamBasicDescription) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::audio_queue::at_audio_queue_new_output(format, &raw mut handle) };
+        let status =
+            unsafe { ffi::audio_queue::at_audio_queue_new_output(format, &raw mut handle) };
         status_to_result("AudioQueueNewOutput", status)?;
         let raw: AudioQueueRef = unsafe { ffi::audio_queue::at_audio_queue_raw(handle) }.cast();
         if raw.is_null() {
@@ -146,23 +149,14 @@ impl AudioQueue {
         Ok(())
     }
 
-    fn get_property_typed<T: Copy>(
+    fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: AudioQueuePropertyId,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
-            ffi::audio_queue::at_audio_queue_get_property(
-                self.raw.cast(),
-                property_id,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
-            )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        read_property(operation, |data, size| unsafe {
+            ffi::audio_queue::at_audio_queue_get_property(self.raw.cast(), property_id, size, data)
+        })
     }
 
     fn release(&mut self) {

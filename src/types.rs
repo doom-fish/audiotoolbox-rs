@@ -1059,7 +1059,7 @@ pub type AudioUnitPropertyListenerProc = unsafe extern "C" fn(
 /// Wraps `AURenderCallbackStruct`.
 pub struct AURenderCallbackStruct {
     /// Wraps `AudioUnitNodeConnection`.
-    pub inputProc: AURenderCallback,
+    pub inputProc: Option<AURenderCallback>,
     /// Wraps `AudioUnitNodeConnection`.
     pub inputProcRefCon: *mut c_void,
 }
@@ -1067,7 +1067,12 @@ pub struct AURenderCallbackStruct {
 impl fmt::Debug for AURenderCallbackStruct {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AURenderCallbackStruct")
-            .field("inputProc", &(self.inputProc as *const c_void))
+            .field(
+                "inputProc",
+                &self
+                    .inputProc
+                    .map_or(std::ptr::null(), |proc| proc as *const c_void),
+            )
             .field("inputProcRefCon", &self.inputProcRefCon)
             .finish()
     }

@@ -41,3 +41,68 @@ fn audio_unit_sets_stream_formats() -> Result<()> {
     unit.uninitialize()?;
     Ok(())
 }
+
+mod support;
+
+#[test]
+fn audio_unit_renders_into_an_owned_buffer_list() -> Result<()> {
+    let (unit, output) = support::ramp_converter_unit()?;
+    let time_stamp = support::sample_time_stamp(0.0);
+    let mut flags = 0;
+
+    let mut list = audiotoolbox::OwnedAudioBufferList::for_format(&output, 256)?;
+    unit.render(&mut flags, &time_stamp, 0, 256, &mut list)?;
+    let data = list.data(0).expect("rendered buffer");
+    assert_eq!(data.len(), 1024);
+    for (index, chunk) in data.chunks_exact(4).enumerate() {
+        let sample = f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        let expected = f32::from(i16::try_from(index).unwrap() * support::RAMP_STEP) / 32_768.0;
+        assert!(
+            (sample - expected).abs() < 1e-6,
+            "frame {index} was {sample}"
+        );
+    }
+
+    let mut two_buffers = audiotoolbox::OwnedAudioBufferList::new(2, 1, 4096)?;
+    assert!(unit
+        .render(&mut flags, &time_stamp, 0, 256, &mut two_buffers)
+        .is_err());
+    let mut too_small = audiotoolbox::OwnedAudioBufferList::for_format(&output, 128)?;
+    assert!(unit
+        .render(&mut flags, &time_stamp, 0, 256, &mut too_small)
+        .is_err());
+    unit.uninitialize()?;
+    Ok(())
+}
+
+#[test]
+fn typed_property_reads_check_the_returned_size() -> Result<()> {
+    let unit = AudioUnit::new_apple(
+        AUDIO_COMPONENT_TYPE_FORMAT_CONVERTER,
+        AUDIO_UNIT_SUBTYPE_AU_CONVERTER,
+    )?;
+    assert!(unit
+        .get_property_typed::<u32>(
+            AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
+            AUDIO_UNIT_SCOPE_INPUT,
+            0,
+            "AudioUnitGetProperty(stream format as u32)",
+        )
+        .is_err());
+    assert!(unit
+        .get_property_typed::<[AudioStreamBasicDescription; 2]>(
+            AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
+            AUDIO_UNIT_SCOPE_INPUT,
+            0,
+            "AudioUnitGetProperty(stream format as two)",
+        )
+        .is_err());
+    let format = unit.get_property_typed::<AudioStreamBasicDescription>(
+        AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
+        AUDIO_UNIT_SCOPE_INPUT,
+        0,
+        "AudioUnitGetProperty(stream format)",
+    )?;
+    assert!(format.mSampleRate > 0.0);
+    Ok(())
+}

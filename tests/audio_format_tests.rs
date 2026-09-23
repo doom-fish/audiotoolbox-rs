@@ -10,10 +10,12 @@ fn audio_format_queries_work() -> Result<()> {
 
     assert_eq!(format_info.mFormatID, AUDIO_FORMAT_LINEAR_PCM);
     assert!(
-        AudioFormat::property_info(
-            AUDIO_FORMAT_PROPERTY_ENCODE_FORMAT_IDS,
-            Option::<&u32>::None,
-        )? > 0
+        unsafe {
+            AudioFormat::property_info(
+                AUDIO_FORMAT_PROPERTY_ENCODE_FORMAT_IDS,
+                Option::<&u32>::None,
+            )
+        }? > 0
     );
     assert!(!AudioFormat::encode_format_ids()?.is_empty());
     assert!(AudioFormat::decode_format_ids()?.contains(&AUDIO_FORMAT_LINEAR_PCM));

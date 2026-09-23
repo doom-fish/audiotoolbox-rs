@@ -1,8 +1,12 @@
 use crate::{
-    ffi, internal::status_to_result, AudioBalanceFade, AudioClassDescription,
+    ffi,
+    internal::status_to_result,
+    property::{property_byte_size, read_property, read_property_array, AudioProperty},
+    AudioBalanceFade, AudioBalanceFadeType, AudioChannelLayoutTag, AudioClassDescription,
     AudioComponentDescription, AudioFormatFlags, AudioFormatId, AudioFormatInfo,
-    AudioFormatListItem, AudioFormatPropertyId, AudioPanningInfo, AudioStreamBasicDescription,
-    AudioValueRange, Result, AUDIO_COMPONENT_MANUFACTURER_APPLE, AUDIO_FORMAT_FLAGS_NATIVE_ENDIAN,
+    AudioFormatListItem, AudioFormatPropertyId, AudioPanningInfo, AudioPanningMode,
+    AudioStreamBasicDescription, AudioToolboxError, AudioValueRange, Result,
+    AUDIO_COMPONENT_MANUFACTURER_APPLE, AUDIO_FORMAT_FLAGS_NATIVE_ENDIAN,
     AUDIO_FORMAT_FLAG_IS_NON_INTERLEAVED, AUDIO_FORMAT_FLAG_IS_PACKED,
     AUDIO_FORMAT_FLAG_IS_SIGNED_INTEGER, AUDIO_FORMAT_LINEAR_PCM,
     AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_BIT_RATES,
@@ -15,22 +19,39 @@ use crate::{
     AUDIO_FORMAT_PROPERTY_FORMAT_LIST, AUDIO_FORMAT_PROPERTY_OUTPUT_FORMAT_LIST,
     LINEAR_PCM_FORMAT_FLAG_IS_FLOAT,
 };
-use std::{ffi::c_void, mem::MaybeUninit};
+use std::ffi::c_void;
 
 #[derive(Debug)]
 /// Namespace wrapper for `AudioFormatGetProperty` and related AudioToolbox.framework APIs.
 pub struct AudioFormat;
+
+#[repr(C)]
+struct TaggedChannelLayout {
+    tag: AudioChannelLayoutTag,
+    bitmap: u32,
+    number_channel_descriptions: u32,
+    descriptions: [u32; 5],
+}
+
+impl TaggedChannelLayout {
+    const fn new(tag: AudioChannelLayoutTag) -> Self {
+        Self {
+            tag,
+            bitmap: 0,
+            number_channel_descriptions: 0,
+            descriptions: [0; 5],
+        }
+    }
+}
 
 impl AudioFormat {
     /// Wraps `AudioFormatGetProperty`.
     pub fn format_info(
         mut description: AudioStreamBasicDescription,
     ) -> Result<AudioStreamBasicDescription> {
-        let mut size = u32::try_from(std::mem::size_of::<AudioStreamBasicDescription>())
-            .expect("AudioStreamBasicDescription fits in u32");
-        // SAFETY: Safe FFI call to AudioFormatGetProperty with valid stack-allocated data
-        // structures. The mutable reference is valid for the duration of the call, and
-        // the result status code is checked before the data is used.
+        let operation = "AudioFormatGetProperty(format info)";
+        let expected = property_byte_size::<AudioStreamBasicDescription>(operation)?;
+        let mut size = expected;
         let status = unsafe {
             ffi::audio_format::at_audio_format_get_property(
                 AUDIO_FORMAT_PROPERTY_FORMAT_INFO,
@@ -40,7 +61,13 @@ impl AudioFormat {
                 std::ptr::from_mut(&mut description).cast::<c_void>(),
             )
         };
-        status_to_result("AudioFormatGetProperty(format info)", status)?;
+        status_to_result(operation, status)?;
+        if size != expected {
+            return Err(AudioToolboxError::message(
+                operation,
+                format!("property returned {size} bytes, expected {expected}"),
+            ));
+        }
         Ok(description)
     }
 
@@ -95,54 +122,52 @@ impl AudioFormat {
 
     /// Wraps `AudioFormatGetProperty`.
     pub fn encoders(format_id: AudioFormatId) -> Result<Vec<AudioClassDescription>> {
-        get_array::<AudioClassDescription>(
+        get_array_with_specifier(
             AUDIO_FORMAT_PROPERTY_ENCODERS,
-            std::ptr::from_ref(&format_id).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatId>()).expect("format ID fits in u32"),
+            &format_id,
             "AudioFormatGetProperty(encoders)",
         )
     }
 
     /// Wraps `AudioFormatGetProperty`.
     pub fn decoders(format_id: AudioFormatId) -> Result<Vec<AudioClassDescription>> {
-        get_array::<AudioClassDescription>(
+        get_array_with_specifier(
             AUDIO_FORMAT_PROPERTY_DECODERS,
-            std::ptr::from_ref(&format_id).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatId>()).expect("format ID fits in u32"),
+            &format_id,
             "AudioFormatGetProperty(decoders)",
         )
     }
 
     /// Wraps `AudioFormatGetProperty`.
     pub fn available_encode_bit_rates(format_id: AudioFormatId) -> Result<Vec<AudioValueRange>> {
-        get_array::<AudioValueRange>(
+        get_array_with_specifier(
             AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_BIT_RATES,
-            std::ptr::from_ref(&format_id).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatId>()).expect("format ID fits in u32"),
+            &format_id,
             "AudioFormatGetProperty(available encode bit rates)",
         )
     }
 
     /// Wraps `AudioFormatGetProperty`.
     pub fn available_encode_sample_rates(format_id: AudioFormatId) -> Result<Vec<AudioValueRange>> {
-        get_array::<AudioValueRange>(
+        get_array_with_specifier(
             AUDIO_FORMAT_PROPERTY_AVAILABLE_ENCODE_SAMPLE_RATES,
-            std::ptr::from_ref(&format_id).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatId>()).expect("format ID fits in u32"),
+            &format_id,
             "AudioFormatGetProperty(available encode sample rates)",
         )
     }
 
     /// Wraps `AudioFormatGetPropertyInfo`.
-    pub fn property_info<T>(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn property_info<T>(
         property_id: AudioFormatPropertyId,
         specifier: Option<&T>,
     ) -> Result<u32> {
+        let specifier_size = property_byte_size::<T>("AudioFormatGetPropertyInfo")?;
         let (specifier_ptr, specifier_size) =
             specifier.map_or((std::ptr::null(), 0), |specifier| {
                 (
                     std::ptr::from_ref(specifier).cast::<c_void>(),
-                    u32::try_from(std::mem::size_of::<T>()).expect("specifier size fits in u32"),
+                    specifier_size,
                 )
             });
         let mut size = 0_u32;
@@ -159,76 +184,96 @@ impl AudioFormat {
     }
 
     /// Wraps `AudioFormatGetProperty`.
-    pub fn format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
-        get_array::<AudioFormatListItem>(
+    pub fn format_list(
+        description: &AudioStreamBasicDescription,
+        magic_cookie: &[u8],
+    ) -> Result<Vec<AudioFormatListItem>> {
+        format_list_property(
             AUDIO_FORMAT_PROPERTY_FORMAT_LIST,
-            std::ptr::from_ref(info).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatInfo>())
-                .expect("AudioFormatInfo fits in u32"),
+            description,
+            magic_cookie,
             "AudioFormatGetProperty(format list)",
         )
     }
 
     /// Wraps `AudioFormatGetProperty`.
-    pub fn output_format_list(info: &AudioFormatInfo) -> Result<Vec<AudioFormatListItem>> {
-        get_array::<AudioFormatListItem>(
+    pub fn output_format_list(
+        description: &AudioStreamBasicDescription,
+        magic_cookie: &[u8],
+    ) -> Result<Vec<AudioFormatListItem>> {
+        format_list_property(
             AUDIO_FORMAT_PROPERTY_OUTPUT_FORMAT_LIST,
-            std::ptr::from_ref(info).cast(),
-            u32::try_from(std::mem::size_of::<AudioFormatInfo>())
-                .expect("AudioFormatInfo fits in u32"),
+            description,
+            magic_cookie,
             "AudioFormatGetProperty(output format list)",
         )
     }
 
     /// Wraps `AudioFormatGetProperty`.
     pub fn first_playable_format_from_list(items: &[AudioFormatListItem]) -> Result<u32> {
+        let operation = "AudioFormatGetProperty(first playable format from list)";
         if items.is_empty() {
-            return Err(crate::AudioToolboxError::message(
-                "AudioFormatGetProperty(first playable format from list)",
+            return Err(AudioToolboxError::message(
+                operation,
                 "at least one AudioFormatListItem is required",
             ));
         }
-        let mut index = 0_u32;
-        let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
-        let specifier_size = u32::try_from(std::mem::size_of_val(items))
-            .expect("AudioFormatListItem slice fits in u32");
-        let status = unsafe {
+        let specifier_size = u32::try_from(std::mem::size_of_val(items)).map_err(|_| {
+            AudioToolboxError::message(operation, "format list exceeds UInt32::MAX bytes")
+        })?;
+        read_property::<u32>(operation, |data, size| unsafe {
             ffi::audio_format::at_audio_format_get_property(
                 AUDIO_FORMAT_PROPERTY_FIRST_PLAYABLE_FORMAT_FROM_LIST,
                 specifier_size,
                 items.as_ptr().cast(),
-                &raw mut size,
-                std::ptr::from_mut(&mut index).cast(),
+                size,
+                data,
             )
-        };
-        status_to_result(
-            "AudioFormatGetProperty(first playable format from list)",
-            status,
-        )?;
-        Ok(index)
+        })
     }
 
     /// Wraps `AudioFormatGetProperty`.
-    pub fn balance_fade(mut balance_fade: AudioBalanceFade) -> Result<AudioBalanceFade> {
-        let mut size = u32::try_from(std::mem::size_of::<AudioBalanceFade>())
-            .expect("AudioBalanceFade fits in u32");
-        let status = unsafe {
-            ffi::audio_format::at_audio_format_get_property(
-                AUDIO_FORMAT_PROPERTY_BALANCE_FADE,
-                u32::try_from(std::mem::size_of::<AudioBalanceFade>())
-                    .expect("AudioBalanceFade fits in u32"),
-                std::ptr::from_ref(&balance_fade).cast(),
-                &raw mut size,
-                std::ptr::from_mut(&mut balance_fade).cast(),
-            )
+    pub fn balance_fade_coefficients(
+        left_right_balance: f32,
+        back_front_fade: f32,
+        fade_type: AudioBalanceFadeType,
+        channel_layout_tag: AudioChannelLayoutTag,
+    ) -> Result<Vec<f32>> {
+        let layout = TaggedChannelLayout::new(channel_layout_tag);
+        let specifier = AudioBalanceFade {
+            mLeftRightBalance: left_right_balance,
+            mBackFrontFade: back_front_fade,
+            mType: fade_type,
+            mChannelLayout: std::ptr::from_ref(&layout).cast(),
         };
-        status_to_result("AudioFormatGetProperty(balance fade)", status)?;
-        Ok(balance_fade)
+        get_array_with_specifier(
+            AUDIO_FORMAT_PROPERTY_BALANCE_FADE,
+            &specifier,
+            "AudioFormatGetProperty(balance fade)",
+        )
     }
 
-    /// Wraps `AudioFormatPanningMatrixSize`.
-    pub fn panning_matrix_size(info: &AudioPanningInfo) -> Result<u32> {
-        Self::property_info(crate::AUDIO_FORMAT_PROPERTY_PANNING_MATRIX, Some(info))
+    /// Wraps `AudioFormatGetProperty`.
+    pub fn panning_matrix(
+        panning_mode: AudioPanningMode,
+        coordinate_flags: u32,
+        coordinates: [f32; 3],
+        gain_scale: f32,
+        output_channel_layout_tag: AudioChannelLayoutTag,
+    ) -> Result<Vec<f32>> {
+        let layout = TaggedChannelLayout::new(output_channel_layout_tag);
+        let specifier = AudioPanningInfo {
+            mPanningMode: panning_mode,
+            mCoordinateFlags: coordinate_flags,
+            mCoordinates: coordinates,
+            mGainScale: gain_scale,
+            mOutputChannelMap: std::ptr::from_ref(&layout).cast(),
+        };
+        get_array_with_specifier(
+            crate::AUDIO_FORMAT_PROPERTY_PANNING_MATRIX,
+            &specifier,
+            "AudioFormatGetProperty(panning matrix)",
+        )
     }
 }
 
@@ -237,32 +282,58 @@ fn get_u32_with_specifier<T>(
     specifier: &T,
     operation: &'static str,
 ) -> Result<u32> {
-    let mut value = MaybeUninit::<u32>::uninit();
-    let mut size = u32::try_from(std::mem::size_of::<u32>()).expect("u32 fits in u32");
-    // SAFETY: Safe FFI call to AudioFormatGetProperty with valid data. The MaybeUninit
-    // buffer is properly sized, and result is checked before assume_init().
-    let status = unsafe {
+    let specifier_size = property_byte_size::<T>(operation)?;
+    read_property::<u32>(operation, |data, size| unsafe {
         ffi::audio_format::at_audio_format_get_property(
             property_id,
-            u32::try_from(std::mem::size_of::<T>()).expect("specifier size fits in u32"),
+            specifier_size,
             std::ptr::from_ref(specifier).cast(),
-            &raw mut size,
-            value.as_mut_ptr().cast(),
+            size,
+            data,
         )
-    };
-    status_to_result(operation, status)?;
-    // SAFETY: Status checked above ensures the value was initialized by AudioToolbox.
-    Ok(unsafe { value.assume_init() })
+    })
 }
 
-fn get_array<T: Copy>(
+fn get_array_with_specifier<S, T: AudioProperty>(
+    property_id: AudioFormatPropertyId,
+    specifier: &S,
+    operation: &'static str,
+) -> Result<Vec<T>> {
+    get_array(
+        property_id,
+        std::ptr::from_ref(specifier).cast(),
+        property_byte_size::<S>(operation)?,
+        operation,
+    )
+}
+
+fn format_list_property(
+    property_id: AudioFormatPropertyId,
+    description: &AudioStreamBasicDescription,
+    magic_cookie: &[u8],
+    operation: &'static str,
+) -> Result<Vec<AudioFormatListItem>> {
+    let specifier = AudioFormatInfo {
+        mASBD: *description,
+        mMagicCookie: if magic_cookie.is_empty() {
+            std::ptr::null()
+        } else {
+            magic_cookie.as_ptr().cast()
+        },
+        mMagicCookieSize: u32::try_from(magic_cookie.len()).map_err(|_| {
+            AudioToolboxError::message(operation, "magic cookie exceeds UInt32::MAX bytes")
+        })?,
+    };
+    get_array_with_specifier(property_id, &specifier, operation)
+}
+
+fn get_array<T: AudioProperty>(
     property_id: AudioFormatPropertyId,
     specifier: *const c_void,
     specifier_size: u32,
     operation: &'static str,
 ) -> Result<Vec<T>> {
     let mut byte_size = 0_u32;
-    // SAFETY: Safe FFI call to AudioFormatGetPropertyInfo with valid inputs.
     let status = unsafe {
         ffi::audio_format::at_audio_format_get_property_info(
             property_id,
@@ -272,49 +343,15 @@ fn get_array<T: Copy>(
         )
     };
     status_to_result(operation, status)?;
-
-    if byte_size == 0 {
-        return Ok(Vec::new());
-    }
-
-    let element_size = std::mem::size_of::<T>();
-    if byte_size as usize % element_size != 0 {
-        return Err(crate::AudioToolboxError::message(
-            operation,
-            "property payload is not an integral number of elements",
-        ));
-    }
-
-    let capacity = byte_size as usize / element_size;
-    // Use `MaybeUninit` for the scratch buffer: AudioToolbox fills `count`
-    // fully-initialised elements and we only ever read those. Building a
-    // `Vec<T>` over uninitialised FFI memory and `set_len`-ing it would be
-    // unsound for any `T` with validity invariants.
-    let mut buffer = Vec::<std::mem::MaybeUninit<T>>::with_capacity(capacity);
-    // SAFETY: Safe FFI call to AudioFormatGetProperty with properly allocated buffer.
-    // Capacity is verified above to be an integral number of T elements.
-    let status = unsafe {
+    read_property_array(operation, byte_size, |data, size| unsafe {
         ffi::audio_format::at_audio_format_get_property(
             property_id,
             specifier_size,
             specifier,
-            &raw mut byte_size,
-            buffer.as_mut_ptr().cast(),
+            size,
+            data,
         )
-    };
-    status_to_result(operation, status)?;
-
-    // The call may report fewer bytes than requested; only assume-init the
-    // elements AudioToolbox actually wrote, capped at the allocated capacity.
-    let written = (byte_size as usize / element_size).min(capacity);
-    let base = buffer.as_ptr();
-    let values = (0..written)
-        // SAFETY: Status checked above; indices `0..written` were initialised
-        // by AudioToolbox and are within the allocated capacity. `T: Copy`
-        // makes reading each `MaybeUninit<T>` out of the buffer sound.
-        .map(|i| unsafe { (*base.add(i)).assume_init() })
-        .collect();
-    Ok(values)
+    })
 }
 
 /// Wraps `AudioFormatIsPrintableFourcc`.

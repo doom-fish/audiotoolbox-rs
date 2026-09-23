@@ -2,8 +2,9 @@ use crate::{
     ffi,
     internal::{status_to_result, string_from_owned_ptr},
     AudioComponentDescription, AudioComponentInstanceRef, AudioComponentRef,
-    AudioComponentValidationResult, AudioToolboxError, CFDictionaryRef, Result,
+    AudioComponentValidationResult, AudioToolboxError, Result,
 };
+use apple_cf::cf::CFDictionary;
 use std::{mem::MaybeUninit, ptr::NonNull};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,7 +101,7 @@ impl AudioComponent {
     }
 
     /// Wraps `AudioComponentCopyConfigurationInfo`.
-    pub fn copy_configuration_info_raw(&self) -> Result<CFDictionaryRef> {
+    pub fn copy_configuration_info(&self) -> Result<CFDictionary> {
         let mut configuration_info = std::ptr::null();
         let status = unsafe {
             ffi::audio_component::at_audio_component_copy_configuration_info(
@@ -109,19 +110,26 @@ impl AudioComponent {
             )
         };
         status_to_result("AudioComponentCopyConfigurationInfo", status)?;
-        Ok(configuration_info)
+        unsafe { CFDictionary::from_raw(configuration_info.cast_mut().cast()) }.ok_or_else(|| {
+            AudioToolboxError::message(
+                "AudioComponentCopyConfigurationInfo",
+                "framework returned a null CFDictionaryRef",
+            )
+        })
     }
 
     /// Wraps `AudioComponentValidate`.
-    pub fn validate_raw(
+    pub fn validate(
         &self,
-        validation_parameters: Option<CFDictionaryRef>,
+        validation_parameters: Option<&CFDictionary>,
     ) -> Result<AudioComponentValidationResult> {
         let mut validation_result = 0_u32;
         let status = unsafe {
             ffi::audio_component::at_audio_component_validate(
                 self.as_raw(),
-                validation_parameters.unwrap_or(std::ptr::null()),
+                validation_parameters.map_or(std::ptr::null(), |parameters| {
+                    parameters.as_ptr().cast_const().cast()
+                }),
                 &raw mut validation_result,
             )
         };

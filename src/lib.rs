@@ -28,6 +28,7 @@ compile_error!("audiotoolbox only supports macOS");
 pub mod async_api;
 mod au_audio_unit;
 mod au_graph;
+mod audio_buffer_list;
 mod audio_component;
 mod audio_converter;
 mod audio_file;
@@ -49,6 +50,7 @@ mod format;
 pub mod generated_c_types;
 mod internal;
 mod music;
+mod property;
 mod types;
 
 #[cfg(feature = "raw-ffi")]
@@ -58,6 +60,7 @@ pub mod raw_ffi;
 pub use apple_cf;
 pub use au_audio_unit::AUAudioUnit;
 pub use au_graph::AUGraph;
+pub use audio_buffer_list::OwnedAudioBufferList;
 pub use audio_component::{AudioComponent, AudioComponentInstance, AudioComponentIter};
 pub use audio_converter::{
     AudioConversionInput, AudioConversionOutput, AudioConverter, BorrowedAudioConverter,
@@ -79,4 +82,5 @@ pub use extended_types::*;
 pub use ffi_layout::verify_ffi_layout;
 pub use format::{fourcc_to_string, is_printable_fourcc, AudioFormat};
 pub use music::{MusicEventInfo, MusicEventIterator, MusicPlayer, MusicSequence, MusicTrack};
+pub use property::AudioProperty;
 pub use types::*;

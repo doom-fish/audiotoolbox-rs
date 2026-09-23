@@ -1,11 +1,12 @@
 use crate::{
     ffi,
     internal::{path_to_cstring, status_to_result},
+    property::{read_property, AudioProperty},
     AudioStreamBasicDescription, AudioToolboxError, BorrowedAudioConverter, ExtAudioFileRef,
     Result, AUDIO_FILE_FLAGS_ERASE_FILE, EXT_AUDIO_FILE_PROPERTY_CLIENT_DATA_FORMAT,
     EXT_AUDIO_FILE_PROPERTY_FILE_DATA_FORMAT, EXT_AUDIO_FILE_PROPERTY_FILE_LENGTH_FRAMES,
 };
-use std::{mem::MaybeUninit, path::Path};
+use std::path::Path;
 
 #[derive(Debug)]
 /// Interleaved buffer helper used with `ExtAudioFileRead` and `ExtAudioFileWrite`.
@@ -242,7 +243,11 @@ impl ExtAudioFile {
         let mut io_number_frames = frames.min(buffer.frame_capacity());
         let raw = buffer.raw_mut_ptr();
         let status = unsafe {
-            ffi::ext_audio_file::at_ext_audio_file_read(self.raw.cast(), &raw mut io_number_frames, raw)
+            ffi::ext_audio_file::at_ext_audio_file_read(
+                self.raw.cast(),
+                &raw mut io_number_frames,
+                raw,
+            )
         };
         status_to_result("ExtAudioFileRead", status)?;
         Ok(io_number_frames)
@@ -256,23 +261,19 @@ impl ExtAudioFile {
         status_to_result("ExtAudioFileWrite", status)
     }
 
-    fn get_property_typed<T: Copy>(
+    fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: crate::ExtAudioFilePropertyId,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
+        read_property(operation, |data, size| unsafe {
             ffi::ext_audio_file::at_ext_audio_file_get_property(
                 self.raw.cast(),
                 property_id,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
+                size,
+                data,
             )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        })
     }
 
     fn set_property_typed<T: Copy>(

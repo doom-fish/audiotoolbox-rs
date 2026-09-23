@@ -1,12 +1,14 @@
 use crate::{
-    ffi, internal::status_to_result, AudioFileStreamId, AudioFileStreamParseFlags,
-    AudioFileStreamPropertyId, AudioStreamBasicDescription, AudioToolboxError, Result,
+    ffi,
+    internal::status_to_result,
+    property::{read_property, AudioProperty},
+    AudioFileStreamId, AudioFileStreamParseFlags, AudioFileStreamPropertyId,
+    AudioStreamBasicDescription, AudioToolboxError, Result,
     AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_BYTE_COUNT,
     AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_PACKET_COUNT, AUDIO_FILE_STREAM_PROPERTY_BIT_RATE,
     AUDIO_FILE_STREAM_PROPERTY_DATA_FORMAT, AUDIO_FILE_STREAM_PROPERTY_FILE_FORMAT,
     AUDIO_FILE_STREAM_PROPERTY_MAGIC_COOKIE_DATA, AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE,
 };
-use std::mem::MaybeUninit;
 
 #[derive(Debug)]
 /// Owning wrapper around an AudioToolbox.framework `AudioFileStreamID`.
@@ -150,23 +152,19 @@ impl AudioFileStream {
         Ok(())
     }
 
-    fn get_property_typed<T: Copy>(
+    fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: AudioFileStreamPropertyId,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
+        read_property(operation, |data, size| unsafe {
             ffi::audio_file_stream::at_audio_file_stream_get_property(
                 self.raw.cast(),
                 property_id,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
+                size,
+                data,
             )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        })
     }
 
     fn get_property_bytes(

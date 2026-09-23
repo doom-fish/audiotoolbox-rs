@@ -1,14 +1,16 @@
 use crate::{
-    ffi, internal::status_to_result, AURenderCallback, AudioBufferList1,
-    AudioStreamBasicDescription, AudioTimeStamp, AudioToolboxError, AudioUnitElement,
-    AudioUnitParameterEvent, AudioUnitParameterId, AudioUnitParameterValue, AudioUnitPropertyId,
-    AudioUnitPropertyListenerProc, AudioUnitRef, AudioUnitRenderActionFlags, AudioUnitScope,
-    Result, AUDIO_COMPONENT_MANUFACTURER_APPLE, AUDIO_UNIT_PROPERTY_CPULOAD,
+    ffi,
+    internal::status_to_result,
+    property::{property_byte_size, read_property},
+    AURenderCallback, AudioProperty, AudioStreamBasicDescription, AudioTimeStamp,
+    AudioToolboxError, AudioUnitElement, AudioUnitParameterEvent, AudioUnitParameterId,
+    AudioUnitParameterValue, AudioUnitPropertyId, AudioUnitPropertyListenerProc, AudioUnitRef,
+    AudioUnitRenderActionFlags, AudioUnitScope, OwnedAudioBufferList, Result,
+    AUDIO_COMPONENT_MANUFACTURER_APPLE, AUDIO_UNIT_PROPERTY_CPULOAD,
     AUDIO_UNIT_PROPERTY_ELEMENT_COUNT, AUDIO_UNIT_PROPERTY_LAST_RENDER_ERROR,
     AUDIO_UNIT_PROPERTY_LATENCY, AUDIO_UNIT_PROPERTY_PRESENTATION_LATENCY,
     AUDIO_UNIT_PROPERTY_SAMPLE_RATE, AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
 };
-use std::mem::MaybeUninit;
 
 #[derive(Debug)]
 /// Wraps `AudioUnit`.
@@ -137,7 +139,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn sample_rate(&self, scope: AudioUnitScope, element: AudioUnitElement) -> Result<f64> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_SAMPLE_RATE,
             scope,
             element,
@@ -147,7 +149,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn latency(&self) -> Result<f64> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_LATENCY,
             crate::AUDIO_UNIT_SCOPE_GLOBAL,
             0,
@@ -157,7 +159,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn presentation_latency(&self) -> Result<f64> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_PRESENTATION_LATENCY,
             crate::AUDIO_UNIT_SCOPE_GLOBAL,
             0,
@@ -167,7 +169,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn cpu_load(&self) -> Result<f32> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_CPULOAD,
             crate::AUDIO_UNIT_SCOPE_GLOBAL,
             0,
@@ -177,7 +179,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn last_render_error(&self) -> Result<crate::OSStatus> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_LAST_RENDER_ERROR,
             crate::AUDIO_UNIT_SCOPE_GLOBAL,
             0,
@@ -187,7 +189,7 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitGetProperty`.
     pub fn element_count(&self, scope: AudioUnitScope) -> Result<u32> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_ELEMENT_COUNT,
             scope,
             0,
@@ -201,7 +203,7 @@ impl AudioUnit {
         scope: AudioUnitScope,
         element: AudioUnitElement,
     ) -> Result<AudioStreamBasicDescription> {
-        self.get_property_typed(
+        self.read_property_typed(
             AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
             scope,
             element,
@@ -216,13 +218,15 @@ impl AudioUnit {
         element: AudioUnitElement,
         format: &AudioStreamBasicDescription,
     ) -> Result<()> {
-        self.set_property_typed(
-            AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
-            scope,
-            element,
-            format,
-            "AudioUnitSetProperty(stream format)",
-        )
+        unsafe {
+            self.set_property_typed(
+                AUDIO_UNIT_PROPERTY_STREAM_FORMAT,
+                scope,
+                element,
+                format,
+                "AudioUnitSetProperty(stream format)",
+            )
+        }
     }
 
     /// Wraps `AudioUnitGetParameter`.
@@ -387,8 +391,12 @@ impl AudioUnit {
         time_stamp: &AudioTimeStamp,
         output_bus_number: u32,
         number_frames: u32,
-        io_data: &mut AudioBufferList1,
+        io_data: &mut OwnedAudioBufferList,
     ) -> Result<()> {
+        let format = self.stream_format(crate::AUDIO_UNIT_SCOPE_OUTPUT, output_bus_number)?;
+        let byte_size = io_data.check_frames("AudioUnitRender", &format, number_frames)?;
+        io_data.set_all_data_byte_sizes(byte_size);
+        let mut raw = io_data.raw_mut();
         let status = unsafe {
             ffi::audio_unit::at_audio_unit_render(
                 self.raw.cast(),
@@ -396,9 +404,10 @@ impl AudioUnit {
                 time_stamp,
                 output_bus_number,
                 number_frames,
-                io_data,
+                raw.as_mut_ptr(),
             )
         };
+        io_data.absorb(&raw);
         status_to_result("AudioUnitRender", status)
     }
 
@@ -409,31 +418,46 @@ impl AudioUnit {
     }
 
     /// Wraps `AudioUnitGetProperty`.
-    pub fn get_property_typed<T: Copy>(
+    pub fn get_property_typed<T: AudioProperty>(
         &self,
         property_id: AudioUnitPropertyId,
         scope: AudioUnitScope,
         element: AudioUnitElement,
         operation: &'static str,
     ) -> Result<T> {
-        let mut value = MaybeUninit::<T>::uninit();
-        let mut size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
-        let status = unsafe {
+        let (size, _) = self.property_info(property_id, scope, element)?;
+        let expected = property_byte_size::<T>(operation)?;
+        if size != expected {
+            return Err(AudioToolboxError::message(
+                operation,
+                format!("the property holds {size} bytes but the requested type has {expected}"),
+            ));
+        }
+        self.read_property_typed(property_id, scope, element, operation)
+    }
+
+    fn read_property_typed<T: AudioProperty>(
+        &self,
+        property_id: AudioUnitPropertyId,
+        scope: AudioUnitScope,
+        element: AudioUnitElement,
+        operation: &'static str,
+    ) -> Result<T> {
+        read_property(operation, |data, size| unsafe {
             ffi::audio_unit::at_audio_unit_get_property(
                 self.raw.cast(),
                 property_id,
                 scope,
                 element,
-                &raw mut size,
-                value.as_mut_ptr().cast(),
+                size,
+                data,
             )
-        };
-        status_to_result(operation, status)?;
-        Ok(unsafe { value.assume_init() })
+        })
     }
 
     /// Wraps `AudioUnitSetProperty`.
-    pub fn set_property_typed<T: Copy>(
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_property_typed<T: Copy>(
         &self,
         property_id: AudioUnitPropertyId,
         scope: AudioUnitScope,
@@ -441,7 +465,7 @@ impl AudioUnit {
         value: &T,
         operation: &'static str,
     ) -> Result<()> {
-        let size = u32::try_from(std::mem::size_of::<T>()).expect("typed property fits in u32");
+        let size = property_byte_size::<T>(operation)?;
         let status = unsafe {
             ffi::audio_unit::at_audio_unit_set_property(
                 self.raw.cast(),
