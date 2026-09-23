@@ -3,7 +3,14 @@ use std::{
     ffi::{CStr, CString},
     os::unix::ffi::OsStrExt,
     path::Path,
+    sync::{Mutex, MutexGuard, PoisonError},
 };
+
+static LIFECYCLE: Mutex<()> = Mutex::new(());
+
+pub fn lifecycle_lock() -> MutexGuard<'static, ()> {
+    LIFECYCLE.lock().unwrap_or_else(PoisonError::into_inner)
+}
 
 /// Converts an AudioToolbox.framework `OSStatus` into `Result<()>`.
 pub fn status_to_result(operation: &'static str, status: OSStatus) -> Result<()> {

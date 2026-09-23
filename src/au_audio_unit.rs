@@ -1,6 +1,6 @@
 use crate::{
     ffi,
-    internal::{error_from_owned_ptr, string_from_owned_ptr},
+    internal::{error_from_owned_ptr, lifecycle_lock, string_from_owned_ptr},
     AUAudioFrameCount, AudioComponentDescription, AudioComponentInstantiationOptions,
     AudioToolboxError, Result, AUDIO_COMPONENT_INSTANTIATION_LOAD_IN_PROCESS,
     AUDIO_COMPONENT_MANUFACTURER_APPLE,
@@ -23,13 +23,16 @@ impl AUAudioUnit {
     ) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let mut error = std::ptr::null_mut();
-        let ok = unsafe {
-            ffi::au_audio_unit::at_au_audio_unit_new(
-                std::ptr::from_ref(&description),
-                options,
-                &raw mut handle,
-                &raw mut error,
-            )
+        let ok = {
+            let _lifecycle = lifecycle_lock();
+            unsafe {
+                ffi::au_audio_unit::at_au_audio_unit_new(
+                    std::ptr::from_ref(&description),
+                    options,
+                    &raw mut handle,
+                    &raw mut error,
+                )
+            }
         };
         if ok {
             Self::from_handle(handle, "AUAudioUnitInit")
@@ -108,6 +111,7 @@ impl AUAudioUnit {
 
     /// Wraps `AUAudioUnitAllocateRenderResources`.
     pub fn allocate_render_resources(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let mut error = std::ptr::null_mut();
         if unsafe {
             ffi::au_audio_unit::at_au_audio_unit_allocate_render_resources(
@@ -126,6 +130,7 @@ impl AUAudioUnit {
 
     /// Wraps `AUAudioUnitDeallocateRenderResources`.
     pub fn deallocate_render_resources(&self) {
+        let _lifecycle = lifecycle_lock();
         unsafe { ffi::au_audio_unit::at_au_audio_unit_deallocate_render_resources(self.handle) };
     }
 
@@ -167,6 +172,7 @@ impl AUAudioUnit {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::au_audio_unit::at_au_audio_unit_release(self.handle) };
             self.handle = std::ptr::null_mut();
         }

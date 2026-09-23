@@ -152,7 +152,8 @@ fn player_keeps_its_sequence_alive() -> Result<()> {
     drop(sequence);
 
     assert_eq!(player.sequence_raw()?, raw_sequence);
-    player.preroll()?;
+    player.set_time(0.5)?;
+    assert!((player.time()? - 0.5).abs() < f64::EPSILON);
     player.clear_sequence()?;
     Ok(())
 }

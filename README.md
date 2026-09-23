@@ -69,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `AudioConverter::fill_complex_buffer` copies each input chunk and keeps it alive until the converter asks for more input. It never signals end of stream; call `finish` (until it returns no packets) at the end of the input, and `reset` before converting a new stream.
 - `MusicTrack` and `MusicEventIterator` borrow their `MusicSequence`, and tracks are disposed through `MusicSequence::dispose_track(&mut self, index)`. Variable-length events (raw MIDI data, meta, user and extended note events) are built from slices.
 - `AudioQueueBufferHandle` borrows its `AudioQueue` and frees its buffer when dropped.
+- Apple's DLS synth crashes when instances are initialized or uninitialized on several threads at once, even separate instances. The crate serializes audio unit, `AUGraph`, `MusicPlayer` and `MusicSequence` creation, initialization, start/stop and disposal behind one process-wide lock; code outside this crate that does the same on other threads is not covered by that lock.
 
 ## Callbacks
 

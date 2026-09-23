@@ -1,6 +1,6 @@
 use crate::{
     ffi,
-    internal::status_to_result,
+    internal::{lifecycle_lock, status_to_result},
     property::{property_byte_size, read_property},
     AURenderCallback, AudioProperty, AudioStreamBasicDescription, AudioTimeStamp,
     AudioToolboxError, AudioUnitElement, AudioUnitParameterEvent, AudioUnitParameterId,
@@ -25,13 +25,16 @@ impl AudioUnit {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(component_type: u32, component_sub_type: u32, manufacturer: u32) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe {
-            ffi::audio_unit::at_audio_unit_new(
-                component_type,
-                component_sub_type,
-                manufacturer,
-                &raw mut handle,
-            )
+        let status = {
+            let _lifecycle = lifecycle_lock();
+            unsafe {
+                ffi::audio_unit::at_audio_unit_new(
+                    component_type,
+                    component_sub_type,
+                    manufacturer,
+                    &raw mut handle,
+                )
+            }
         };
         status_to_result("AudioUnitNew", status)?;
         let raw: AudioUnitRef = unsafe { ffi::audio_unit::at_audio_unit_raw(handle) }.cast();
@@ -92,12 +95,14 @@ impl AudioUnit {
 
     /// Wraps `AudioUnitInitialize`.
     pub fn initialize(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::audio_unit::at_audio_unit_initialize(self.raw.cast()) };
         status_to_result("AudioUnitInitialize", status)
     }
 
     /// Wraps `AudioUnitUninitialize`.
     pub fn uninitialize(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::audio_unit::at_audio_unit_uninitialize(self.raw.cast()) };
         status_to_result("AudioUnitUninitialize", status)
     }
@@ -481,6 +486,7 @@ impl AudioUnit {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::audio_unit::at_audio_unit_release(self.handle) };
             self.handle = std::ptr::null_mut();
             self.raw = std::ptr::null_mut();

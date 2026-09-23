@@ -1,6 +1,6 @@
 use crate::{
     ffi,
-    internal::{status_to_result, string_from_owned_ptr},
+    internal::{lifecycle_lock, status_to_result, string_from_owned_ptr},
     AudioComponentDescription, AudioComponentInstanceRef, AudioComponentRef,
     AudioComponentValidationResult, AudioToolboxError, Result,
 };
@@ -142,11 +142,14 @@ impl AudioComponent {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_instance(&self) -> Result<AudioComponentInstance> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe {
-            ffi::audio_component::at_audio_component_instance_new(
-                self.as_raw().cast(),
-                &raw mut handle,
-            )
+        let status = {
+            let _lifecycle = lifecycle_lock();
+            unsafe {
+                ffi::audio_component::at_audio_component_instance_new(
+                    self.as_raw().cast(),
+                    &raw mut handle,
+                )
+            }
         };
         status_to_result("AudioComponentInstanceNew", status)?;
         let raw: AudioComponentInstanceRef =
@@ -208,6 +211,7 @@ impl AudioComponentInstance {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::audio_component::at_audio_component_instance_release(self.handle) };
             self.handle = std::ptr::null_mut();
             self.raw = std::ptr::null_mut();

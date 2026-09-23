@@ -1,6 +1,8 @@
 use crate::{
-    ffi, internal::status_to_result, AUNode, AUNodeInteraction, AURenderCallback,
-    AURenderCallbackStruct, AudioComponentDescription, AudioToolboxError, Result,
+    ffi,
+    internal::{lifecycle_lock, status_to_result},
+    AUNode, AUNodeInteraction, AURenderCallback, AURenderCallbackStruct, AudioComponentDescription,
+    AudioToolboxError, Result,
 };
 use std::ffi::c_void;
 
@@ -31,42 +33,49 @@ impl AUGraph {
 
     /// Wraps `AUGraphOpen`.
     pub fn open(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_open(self.handle) };
         status_to_result("AUGraphOpen", status)
     }
 
     /// Wraps `AUGraphClose`.
     pub fn close_graph(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_close(self.raw) };
         status_to_result("AUGraphClose", status)
     }
 
     /// Wraps `AUGraphInitialize`.
     pub fn initialize(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_initialize(self.handle) };
         status_to_result("AUGraphInitialize", status)
     }
 
     /// Wraps `AUGraphUninitialize`.
     pub fn uninitialize(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_uninitialize(self.handle) };
         status_to_result("AUGraphUninitialize", status)
     }
 
     /// Wraps `AUGraphStart`.
     pub fn start(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_start(self.handle) };
         status_to_result("AUGraphStart", status)
     }
 
     /// Wraps `AUGraphStop`.
     pub fn stop(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::au_graph::at_au_graph_stop(self.handle) };
         status_to_result("AUGraphStop", status)
     }
 
     /// Wraps `AUGraphUpdate`.
     pub fn update(&self) -> Result<bool> {
+        let _lifecycle = lifecycle_lock();
         let mut is_updated = 0_u8;
         let status = unsafe { ffi::au_graph::at_au_graph_update(self.raw, &raw mut is_updated) };
         status_to_result("AUGraphUpdate", status)?;
@@ -338,6 +347,7 @@ impl AUGraph {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::au_graph::at_au_graph_release(self.handle) };
             self.handle = std::ptr::null_mut();
         }

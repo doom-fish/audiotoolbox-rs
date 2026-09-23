@@ -1,7 +1,8 @@
 use crate::{
     ffi,
     internal::{
-        cf_data_from_bytes, cf_data_to_vec, cf_release, cf_url_from_path, status_to_result,
+        cf_data_from_bytes, cf_data_to_vec, cf_release, cf_url_from_path, lifecycle_lock,
+        status_to_result,
     },
     property::{property_byte_size, read_property, AudioProperty},
     AUGraph, AUNode, AUPresetEvent, AudioToolboxError, AudioUnitElement, AudioUnitScope,
@@ -334,6 +335,7 @@ impl MusicSequence {
 
     /// Wraps `MusicSequenceSetAUGraph`.
     pub fn set_au_graph(&self, graph: &AUGraph) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe {
             ffi::music::at_music_sequence_set_au_graph(self.handle, graph.bridge_handle())
         };
@@ -533,6 +535,7 @@ impl MusicSequence {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::music::at_music_sequence_release(self.handle) };
             self.handle = std::ptr::null_mut();
             self.raw = std::ptr::null_mut();
@@ -908,6 +911,7 @@ impl MusicPlayer {
 
     /// Wraps `MusicPlayerSetSequence`.
     pub fn set_sequence(&self, sequence: &MusicSequence) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status =
             unsafe { ffi::music::at_music_player_set_sequence(self.handle, sequence.handle) };
         status_to_result("MusicPlayerSetSequence", status)
@@ -915,6 +919,7 @@ impl MusicPlayer {
 
     #[allow(clippy::missing_errors_doc)]
     pub fn clear_sequence(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status =
             unsafe { ffi::music::at_music_player_set_sequence(self.handle, std::ptr::null_mut()) };
         status_to_result("MusicPlayerSetSequence", status)
@@ -974,18 +979,21 @@ impl MusicPlayer {
 
     /// Wraps `MusicPlayerPreroll`.
     pub fn preroll(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::music::at_music_player_preroll(self.raw.cast()) };
         status_to_result("MusicPlayerPreroll", status)
     }
 
     /// Wraps `MusicPlayerStart`.
     pub fn start(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::music::at_music_player_start(self.raw.cast()) };
         status_to_result("MusicPlayerStart", status)
     }
 
     /// Wraps `MusicPlayerStop`.
     pub fn stop(&self) -> Result<()> {
+        let _lifecycle = lifecycle_lock();
         let status = unsafe { ffi::music::at_music_player_stop(self.raw.cast()) };
         status_to_result("MusicPlayerStop", status)
     }
@@ -1025,6 +1033,7 @@ impl MusicPlayer {
 
     fn release(&mut self) {
         if !self.handle.is_null() {
+            let _lifecycle = lifecycle_lock();
             unsafe { ffi::music::at_music_player_release(self.handle) };
             self.handle = std::ptr::null_mut();
             self.raw = std::ptr::null_mut();
