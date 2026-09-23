@@ -16,9 +16,50 @@ private final class SystemSoundBox {
     }
 }
 
-private func systemSound(from handle: UnsafeMutableRawPointer?) -> SystemSoundID {
-    let box: SystemSoundBox = takeUnretained(handle!, as: SystemSoundBox.self)
+private func systemSound(from handle: UnsafeMutableRawPointer) -> SystemSoundID {
+    let box: SystemSoundBox = takeUnretained(handle, as: SystemSoundBox.self)
     return box.id
+}
+
+private final class CompletionContext {
+    let context: UnsafeMutableRawPointer
+    let release: ContextRelease
+
+    init(_ context: UnsafeMutableRawPointer, _ release: @escaping ContextRelease) {
+        self.context = context
+        self.release = release
+    }
+
+    deinit {
+        release(context)
+    }
+}
+
+public typealias SystemSoundCompletionProc = @convention(c) (UnsafeMutableRawPointer?) -> Void
+
+@_cdecl("at_system_sound_play_with_completion")
+public func at_system_sound_play_with_completion(
+    _ handle: UnsafeMutableRawPointer?,
+    _ alert: Bool,
+    _ callback: SystemSoundCompletionProc?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?
+) -> Bool {
+    guard let handle, let callback, let context, let release else {
+        adoptContext(into: nil, context, release)
+        return false
+    }
+    let holder = CompletionContext(context, release)
+    let completion = {
+        callback(holder.context)
+    }
+    let sound = systemSound(from: handle)
+    if alert {
+        AudioServicesPlayAlertSoundWithCompletion(sound, completion)
+    } else {
+        AudioServicesPlaySystemSoundWithCompletion(sound, completion)
+    }
+    return true
 }
 
 @_cdecl("at_system_sound_create")

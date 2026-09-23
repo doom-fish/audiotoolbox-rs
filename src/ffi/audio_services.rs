@@ -62,4 +62,11 @@ unsafe extern "C" {
         handle: *mut c_void,
         value: u32,
     ) -> OSStatus;
+    pub fn at_system_sound_play_with_completion(
+        handle: *mut c_void,
+        alert: bool,
+        callback: unsafe extern "C" fn(*mut c_void),
+        context: *mut c_void,
+        release: unsafe extern "C" fn(*mut c_void),
+    ) -> bool;
 }
