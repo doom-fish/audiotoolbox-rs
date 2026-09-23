@@ -791,8 +791,16 @@ pub struct AudioTimeStamp {
     pub mReserved: u32,
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Wraps `AudioFileSMPTETime`.
-pub type AudioFileSmpteTime = SMPTETime;
+pub struct AudioFileSmpteTime {
+    pub mHours: i8,
+    pub mMinutes: u8,
+    pub mSeconds: u8,
+    pub mFrames: u8,
+    pub mSubFrameSampleOffset: u32,
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]

@@ -4,7 +4,7 @@ use std::mem::{size_of, MaybeUninit};
 use crate::{
     internal::status_to_result, AVAudioConverterPrimeInfo, AVBeatRange, AudioBytePacketTranslation,
     AudioClassDescription, AudioComponentDescription, AudioConverterPrimeInfo,
-    AudioFilePacketTableInfo, AudioFileTypeAndFormatId, AudioFormatListItem,
+    AudioFilePacketTableInfo, AudioFileSmpteTime, AudioFileTypeAndFormatId, AudioFormatListItem,
     AudioFramePacketTranslation, AudioIndependentPacketTranslation,
     AudioPacketDependencyInfoTranslation, AudioPacketRangeByteCountTranslation,
     AudioPacketRollDistanceTranslation, AudioStreamBasicDescription, AudioStreamPacketDescription,
@@ -61,6 +61,7 @@ audio_property!(
     NoteParamsControlValue,
     AVAudioConverterPrimeInfo,
     AVBeatRange,
+    AudioFileSmpteTime,
 );
 
 unsafe impl<T: AudioProperty, const N: usize> AudioProperty for [T; N] {}
