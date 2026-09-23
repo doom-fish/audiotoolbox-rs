@@ -223,10 +223,18 @@ macro_rules! opaque_objc_handle {
     ($($name:ident),+ $(,)?) => {
         $(
             #[repr(transparent)]
-            #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             #[doc = concat!("Wraps `", stringify!($name), "`.")]
             pub struct $name {
                 handle: *mut c_void,
+            }
+
+            impl Default for $name {
+                fn default() -> Self {
+                    Self {
+                        handle: std::ptr::null_mut(),
+                    }
+                }
             }
 
             impl $name {
