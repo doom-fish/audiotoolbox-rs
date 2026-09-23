@@ -18,6 +18,44 @@ func releaseObject<T: AnyObject>(_ ptr: UnsafeMutableRawPointer, as _: T.Type = 
     Unmanaged<T>.fromOpaque(UnsafeRawPointer(typed)).release()
 }
 
+public typealias ContextRelease = @convention(c) (UnsafeMutableRawPointer?) -> Void
+
+final class AdoptedContexts {
+    private let lock = NSLock()
+    private var entries: [(UnsafeMutableRawPointer, ContextRelease)] = []
+
+    func adopt(_ context: UnsafeMutableRawPointer, _ release: @escaping ContextRelease) {
+        lock.lock()
+        entries.append((context, release))
+        lock.unlock()
+    }
+
+    func releaseAll() {
+        lock.lock()
+        let drained = entries
+        entries.removeAll()
+        lock.unlock()
+        for (context, release) in drained {
+            release(context)
+        }
+    }
+}
+
+func adoptContext(
+    into contexts: AdoptedContexts?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?
+) {
+    guard let context, let release else {
+        return
+    }
+    guard let contexts else {
+        release(context)
+        return
+    }
+    contexts.adopt(context, release)
+}
+
 func fileURL(from path: UnsafePointer<CChar>?) -> URL? {
     guard let path else {
         return nil

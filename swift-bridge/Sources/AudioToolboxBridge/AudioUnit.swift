@@ -6,16 +6,16 @@ import CoreFoundation
 import Foundation
 
 private final class AudioUnitBox {
-    var value: AudioUnit?
+    let value: AudioUnit
+    let contexts = AdoptedContexts()
 
     init(_ value: AudioUnit) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            AudioComponentInstanceDispose(value)
-        }
+        AudioComponentInstanceDispose(value)
+        contexts.releaseAll()
     }
 }
 
@@ -83,6 +83,16 @@ public func at_audio_unit_release(_ handle: UnsafeMutableRawPointer?) {
         return
     }
     releaseObject(handle, as: AudioUnitBox.self)
+}
+
+@_cdecl("at_audio_unit_adopt_context")
+public func at_audio_unit_adopt_context(
+    _ handle: UnsafeMutableRawPointer?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?
+) {
+    let box: AudioUnitBox? = handle.map { takeUnretained($0) }
+    adoptContext(into: box?.contexts, context, release)
 }
 
 @_cdecl("at_audio_unit_initialize")

@@ -116,6 +116,15 @@ impl AUGraph {
         Self::from_handle(handle, "AUGraphRetain")
     }
 
+    #[cfg(feature = "async")]
+    pub(crate) fn adopt_context(
+        &self,
+        context: *mut c_void,
+        release: unsafe extern "C" fn(*mut c_void),
+    ) {
+        unsafe { ffi::au_graph::at_au_graph_adopt_context(self.handle, context, release) };
+    }
+
     /// Wraps `AUGraphGetNodeCount`.
     pub fn node_count(&self) -> Result<u32> {
         let mut node_count = 0_u32;

@@ -17,6 +17,11 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AUGraphRelease`.
     pub fn at_au_graph_release(handle: *mut c_void);
+    pub fn at_au_graph_adopt_context(
+        handle: *mut c_void,
+        context: *mut c_void,
+        release: unsafe extern "C" fn(*mut c_void),
+    );
     /// Raw binding for `AUGraphRaw`.
     ///
     /// # Safety

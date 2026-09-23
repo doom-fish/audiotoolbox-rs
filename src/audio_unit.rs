@@ -79,6 +79,15 @@ impl AudioUnit {
         Ok(Self { handle, raw })
     }
 
+    #[cfg(feature = "async")]
+    pub(crate) fn adopt_context(
+        &self,
+        context: *mut std::ffi::c_void,
+        release: unsafe extern "C" fn(*mut std::ffi::c_void),
+    ) {
+        unsafe { ffi::audio_unit::at_audio_unit_adopt_context(self.handle, context, release) };
+    }
+
     /// Wraps `AudioUnitInitialize`.
     pub fn initialize(&self) -> Result<()> {
         let status = unsafe { ffi::audio_unit::at_audio_unit_initialize(self.raw.cast()) };

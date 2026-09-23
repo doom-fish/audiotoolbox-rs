@@ -4,23 +4,23 @@ import CoreAudio
 import CoreFoundation
 import Foundation
 
-private final class AUGraphBox {
-    var value: AUGraph?
+final class AUGraphBox {
+    let value: AUGraph
+    let contexts = AdoptedContexts()
 
     init(_ value: AUGraph) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            DisposeAUGraph(value)
-        }
+        DisposeAUGraph(value)
+        contexts.releaseAll()
     }
 }
 
 private func auGraph(from handle: UnsafeMutableRawPointer) -> AUGraph {
     let box: AUGraphBox = takeUnretained(handle)
-    return box.value!
+    return box.value
 }
 
 @_cdecl("at_au_graph_new")
@@ -45,6 +45,16 @@ public func at_au_graph_release(_ handle: UnsafeMutableRawPointer?) {
         return
     }
     releaseObject(handle, as: AUGraphBox.self)
+}
+
+@_cdecl("at_au_graph_adopt_context")
+public func at_au_graph_adopt_context(
+    _ handle: UnsafeMutableRawPointer?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?
+) {
+    let box: AUGraphBox? = handle.map { takeUnretained($0) }
+    adoptContext(into: box?.contexts, context, release)
 }
 
 @_cdecl("at_au_graph_raw")

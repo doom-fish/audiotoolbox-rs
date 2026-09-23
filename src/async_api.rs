@@ -4,7 +4,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! audiotoolbox = { version = "0.4", features = ["async"] }
+//! audiotoolbox = { version = "0.5", features = ["async"] }
 //! ```
 //!
 //! The wrappers here intentionally target callback surfaces that are naturally
@@ -47,91 +47,85 @@
 )]
 
 use core::ffi::c_void;
-use core::sync::atomic::{fence, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
-use doom_fish_utils::panic_safe::catch_user_panic;
-use doom_fish_utils::spsc::{PopFuture as SpscPopFuture, SpscConsumer, SpscProducer, SpscRing};
-use doom_fish_utils::stream::{AsyncStreamSender, BoundedAsyncStream, NextItem};
+use doom_fish_utils::callback_context::CallbackContext;
+use doom_fish_utils::spsc::{PopFuture, SpscConsumer, SpscProducer, SpscRing};
 
 use crate::{
     AUGraph, AudioBufferList1, AudioTimeStamp, AudioToolboxError, AudioUnit, AudioUnitElement,
-    AudioUnitPropertyId, AudioUnitRenderActionFlags, AudioUnitScope, Result, NO_ERR,
+    AudioUnitPropertyId, AudioUnitRenderActionFlags, AudioUnitScope, OSStatus, Result, NO_ERR,
 };
 
-const RENDER_NOTIFY_STREAM_MAX_CAPACITY: usize = 4096;
+const STREAM_MAX_CAPACITY: usize = 4096;
 
-type RenderNotifyProducer = SpscProducer<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>;
-type RenderNotifyConsumer = SpscConsumer<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>;
-type RenderNotifyNext<'a> = SpscPopFuture<'a, RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>;
+type EventConsumer<T> = SpscConsumer<T, STREAM_MAX_CAPACITY>;
+type EventNext<'a, T> = PopFuture<'a, T, STREAM_MAX_CAPACITY>;
+type EventContext<T> = CallbackContext<DetachableProducer<T>>;
 
 fn invalid_capacity(operation: &'static str) -> AudioToolboxError {
     AudioToolboxError::message(operation, "async stream capacity must be > 0")
 }
 
-fn drop_boxed_ptr<T>(raw: &mut *mut T) {
-    if !(*raw).is_null() {
-        // SAFETY: `*raw` originates from `Box::into_raw` in this module and is
-        // reconstituted at most once here before being nulled out.
-        unsafe { drop(Box::from_raw(*raw)) };
-        *raw = core::ptr::null_mut();
+struct DetachableProducer<T> {
+    producer: AtomicPtr<SpscProducer<T, STREAM_MAX_CAPACITY>>,
+    in_flight: AtomicUsize,
+}
+
+impl<T> DetachableProducer<T> {
+    fn new(producer: SpscProducer<T, STREAM_MAX_CAPACITY>) -> Self {
+        Self {
+            producer: AtomicPtr::new(Box::into_raw(Box::new(producer))),
+            in_flight: AtomicUsize::new(0),
+        }
+    }
+
+    fn push(&self, item: T) {
+        self.in_flight.fetch_add(1, Ordering::SeqCst);
+        let producer = self.producer.load(Ordering::SeqCst);
+        if let Some(producer) = unsafe { producer.as_ref() } {
+            let _ = producer.push_overwrite(item);
+        }
+        self.in_flight.fetch_sub(1, Ordering::SeqCst);
+    }
+
+    fn detach(&self) {
+        let producer = self.producer.swap(core::ptr::null_mut(), Ordering::SeqCst);
+        while self.in_flight.load(Ordering::SeqCst) != 0 {
+            std::thread::yield_now();
+        }
+        if !producer.is_null() {
+            drop(unsafe { Box::from_raw(producer) });
+        }
+    }
+
+    fn is_attached(&self) -> bool {
+        !self.producer.load(Ordering::SeqCst).is_null()
     }
 }
 
-/// Reference-counted owner of a render-notify SPSC producer.
-///
-/// `AudioUnitRemoveRenderNotify` / `AUGraphRemoveRenderNotify` do not fence
-/// against the real-time render thread, so a callback can still be in flight
-/// when the stream is dropped. Freeing the producer immediately (as the naive
-/// `Box` handoff did) is a use-after-free: the render thread may dereference
-/// the producer pointer after the box is gone.
-///
-/// To make this sound we mirror the Arc-style retain/release pattern used by
-/// the ScreenCaptureKit stream context: the render callback takes a +1
-/// reference for the duration of each invocation, and the stream's `Drop`
-/// releases the owning reference *after* removing the notify. Whichever side
-/// drops the last reference frees the box, so the producer always outlives any
-/// callback that is actively touching it.
-struct RenderNotifyBox {
-    ref_count: AtomicUsize,
-    producer: RenderNotifyProducer,
+impl<T> Drop for DetachableProducer<T> {
+    fn drop(&mut self) {
+        let producer = *self.producer.get_mut();
+        if !producer.is_null() {
+            drop(unsafe { Box::from_raw(producer) });
+        }
+    }
 }
 
-impl RenderNotifyBox {
-    fn new(producer: RenderNotifyProducer) -> *mut Self {
-        Box::into_raw(Box::new(Self {
-            ref_count: AtomicUsize::new(1),
-            producer,
-        }))
+fn event_channel<T: Send + 'static>(
+    capacity: usize,
+    operation: &'static str,
+) -> Result<(EventConsumer<T>, EventContext<T>)> {
+    if capacity == 0 {
+        return Err(invalid_capacity(operation));
     }
-
-    /// Increment the reference count.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must point to a live `RenderNotifyBox`.
-    unsafe fn retain(ptr: *const Self) {
-        unsafe { &*ptr }.ref_count.fetch_add(1, Ordering::Relaxed);
-    }
-
-    /// Decrement the reference count, freeing the box when it reaches zero.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must point to a live `RenderNotifyBox`; after this call the caller
-    /// must not touch `ptr` again.
-    unsafe fn release(ptr: *mut Self) {
-        if ptr.is_null() {
-            return;
-        }
-        if unsafe { &*ptr }.ref_count.fetch_sub(1, Ordering::Release) == 1 {
-            // Acquire fence pairs with the Release stores from every other
-            // holder so the freeing thread observes their writes before the
-            // box is dropped (canonical `Arc::drop` pattern; required for
-            // soundness on weakly-ordered targets such as AArch64).
-            fence(Ordering::Acquire);
-            drop(unsafe { Box::from_raw(ptr) });
-        }
-    }
+    let (producer, consumer) =
+        SpscRing::<T, STREAM_MAX_CAPACITY>::with_capacity(capacity.min(STREAM_MAX_CAPACITY));
+    Ok((
+        consumer,
+        CallbackContext::new(DetachableProducer::new(producer)),
+    ))
 }
 
 /// One `AudioUnitAddPropertyListener` callback.
@@ -159,23 +153,19 @@ unsafe extern "C" fn audio_unit_property_listener_cb(
     scope: AudioUnitScope,
     element: AudioUnitElement,
 ) {
-    catch_user_panic("audiotoolbox::audio_unit_property_listener_cb", || {
-        // SAFETY: `user_data` is the boxed sender pointer allocated in
-        // `AudioUnitPropertyStream::subscribe` and remains valid until the
-        // listener is removed during drop.
-        let Some(sender) = (unsafe {
-            user_data
-                .cast::<AsyncStreamSender<AudioUnitPropertyEvent>>()
-                .as_ref()
-        }) else {
-            return;
-        };
-        sender.push(AudioUnitPropertyEvent {
-            property_id,
-            scope,
-            element,
-        });
-    });
+    let _ = unsafe {
+        EventContext::<AudioUnitPropertyEvent>::with(
+            user_data,
+            "audiotoolbox::audio_unit_property_listener_cb",
+            |slot| {
+                slot.push(AudioUnitPropertyEvent {
+                    property_id,
+                    scope,
+                    element,
+                });
+            },
+        )
+    };
 }
 
 unsafe fn render_notify_event_from_raw(
@@ -206,37 +196,29 @@ unsafe extern "C" fn render_notify_cb(
     bus_number: u32,
     number_frames: u32,
     _io_data: *mut AudioBufferList1,
-) -> i32 {
-    catch_user_panic("audiotoolbox::render_notify_cb", || {
-        let ptr = user_data.cast::<RenderNotifyBox>();
-        if ptr.is_null() {
-            return;
-        }
-        // Take a +1 reference for the duration of this callback so the box
-        // cannot be freed by a concurrent `Drop` while we touch the producer.
-        // SAFETY: `ptr` is the `RenderNotifyBox` allocated in the corresponding
-        // `subscribe` constructor; the owning stream holds a reference until it
-        // has removed this notify and released, so `ptr` is live on entry.
-        unsafe { RenderNotifyBox::retain(ptr) };
-        // SAFETY: we just retained `ptr`, so the box is alive for this scope.
-        let producer = &unsafe { &*ptr }.producer;
-        // SAFETY: the callback receives valid pointers for the duration of this
-        // invocation; `render_notify_event_from_raw` defensively handles nulls.
-        let _ = producer.push_overwrite(unsafe {
-            render_notify_event_from_raw(action_flags, time_stamp, bus_number, number_frames)
-        });
-        // Release our reference; frees the box iff the stream already dropped.
-        // SAFETY: balances the `retain` above; `ptr` is not used afterwards.
-        unsafe { RenderNotifyBox::release(ptr) };
-    });
+) -> OSStatus {
+    let _ = unsafe {
+        EventContext::<RenderNotifyEvent>::with(
+            user_data,
+            "audiotoolbox::render_notify_cb",
+            |slot| {
+                slot.push(render_notify_event_from_raw(
+                    action_flags,
+                    time_stamp,
+                    bus_number,
+                    number_frames,
+                ));
+            },
+        )
+    };
     NO_ERR
 }
 
 /// Async stream of `AudioUnit` property-listener callbacks.
 pub struct AudioUnitPropertyStream {
-    inner: BoundedAsyncStream<AudioUnitPropertyEvent>,
+    inner: EventConsumer<AudioUnitPropertyEvent>,
     property_id: AudioUnitPropertyId,
-    sender_raw: *mut AsyncStreamSender<AudioUnitPropertyEvent>,
+    context: EventContext<AudioUnitPropertyEvent>,
     unit: AudioUnit,
 }
 
@@ -246,10 +228,10 @@ impl Drop for AudioUnitPropertyStream {
             self.unit.remove_property_listener_with_user_data(
                 self.property_id,
                 audio_unit_property_listener_cb,
-                self.sender_raw.cast(),
+                self.context.as_ptr(),
             )
         };
-        drop_boxed_ptr(&mut self.sender_raw);
+        self.context.get().detach();
     }
 }
 
@@ -260,39 +242,35 @@ impl AudioUnitPropertyStream {
         property_id: AudioUnitPropertyId,
         capacity: usize,
     ) -> Result<Self> {
-        if capacity == 0 {
-            return Err(invalid_capacity("AudioUnitPropertyStream::subscribe"));
-        }
-
-        let (inner, sender) = BoundedAsyncStream::new(capacity);
-        let mut sender_raw = Box::into_raw(Box::new(sender));
+        let (inner, context) = event_channel(capacity, "AudioUnitPropertyStream::subscribe")?;
         let unit = unit.retained()?;
 
-        if let Err(error) = unsafe {
+        unsafe {
             unit.add_property_listener(
                 property_id,
                 audio_unit_property_listener_cb,
-                sender_raw.cast(),
+                context.as_ptr(),
             )
-        } {
-            drop_boxed_ptr(&mut sender_raw);
-            return Err(error);
-        }
+        }?;
+        unit.adopt_context(
+            context.retained_ptr(),
+            EventContext::<AudioUnitPropertyEvent>::RELEASE,
+        );
 
         Ok(Self {
             inner,
             property_id,
-            sender_raw,
+            context,
             unit,
         })
     }
 
-    pub const fn next(&self) -> NextItem<'_, AudioUnitPropertyEvent> {
-        self.inner.next()
+    pub const fn next(&self) -> EventNext<'_, AudioUnitPropertyEvent> {
+        self.inner.pop_async()
     }
 
     pub fn try_next(&self) -> Option<AudioUnitPropertyEvent> {
-        self.inner.try_next()
+        self.inner.pop()
     }
 
     pub fn buffered_count(&self) -> usize {
@@ -300,59 +278,47 @@ impl AudioUnitPropertyStream {
     }
 
     pub fn is_closed(&self) -> bool {
-        self.inner.is_closed()
+        !self.context.get().is_attached()
     }
 }
 
 /// Async stream of `AudioUnitAddRenderNotify` callbacks.
 pub struct AudioUnitRenderNotifyStream {
-    inner: RenderNotifyConsumer,
-    sender_raw: *mut RenderNotifyBox,
+    inner: EventConsumer<RenderNotifyEvent>,
+    context: EventContext<RenderNotifyEvent>,
     unit: AudioUnit,
 }
 
 impl Drop for AudioUnitRenderNotifyStream {
     fn drop(&mut self) {
-        // Remove the notify first so AudioToolbox starts no *new* callbacks,
-        // then release the owning reference. An in-flight callback holds its
-        // own +1 reference, so the box (and producer) outlives it.
         let _ = unsafe {
             self.unit
-                .remove_render_notify(render_notify_cb, self.sender_raw.cast())
+                .remove_render_notify(render_notify_cb, self.context.as_ptr())
         };
-        unsafe { RenderNotifyBox::release(self.sender_raw) };
-        self.sender_raw = core::ptr::null_mut();
+        self.context.get().detach();
     }
 }
 
 impl AudioUnitRenderNotifyStream {
     /// Subscribe to `AudioUnitAddRenderNotify` using a real-time-safe SPSC handoff.
     pub fn subscribe(unit: &AudioUnit, capacity: usize) -> Result<Self> {
-        if capacity == 0 {
-            return Err(invalid_capacity("AudioUnitRenderNotifyStream::subscribe"));
-        }
-
-        let ring_capacity = capacity.min(RENDER_NOTIFY_STREAM_MAX_CAPACITY);
-        let (sender, inner) =
-            SpscRing::<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>::with_capacity(
-                ring_capacity,
-            );
-        let sender_raw = RenderNotifyBox::new(sender);
+        let (inner, context) = event_channel(capacity, "AudioUnitRenderNotifyStream::subscribe")?;
         let unit = unit.retained()?;
 
-        if let Err(error) = unsafe { unit.add_render_notify(render_notify_cb, sender_raw.cast()) } {
-            unsafe { RenderNotifyBox::release(sender_raw) };
-            return Err(error);
-        }
+        unsafe { unit.add_render_notify(render_notify_cb, context.as_ptr()) }?;
+        unit.adopt_context(
+            context.retained_ptr(),
+            EventContext::<RenderNotifyEvent>::RELEASE,
+        );
 
         Ok(Self {
             inner,
-            sender_raw,
+            context,
             unit,
         })
     }
 
-    pub const fn next(&self) -> RenderNotifyNext<'_> {
+    pub const fn next(&self) -> EventNext<'_, RenderNotifyEvent> {
         self.inner.pop_async()
     }
 
@@ -367,54 +333,41 @@ impl AudioUnitRenderNotifyStream {
 
 /// Async stream of `AUGraphAddRenderNotify` callbacks.
 pub struct AUGraphRenderNotifyStream {
-    inner: RenderNotifyConsumer,
-    sender_raw: *mut RenderNotifyBox,
+    inner: EventConsumer<RenderNotifyEvent>,
+    context: EventContext<RenderNotifyEvent>,
     graph: AUGraph,
 }
 
 impl Drop for AUGraphRenderNotifyStream {
     fn drop(&mut self) {
-        // See `AudioUnitRenderNotifyStream::drop`: remove the notify first,
-        // then release the owning reference so an in-flight callback's own
-        // reference keeps the box alive until it finishes.
         let _ = unsafe {
             self.graph
-                .remove_render_notify(render_notify_cb, self.sender_raw.cast())
+                .remove_render_notify(render_notify_cb, self.context.as_ptr())
         };
-        unsafe { RenderNotifyBox::release(self.sender_raw) };
-        self.sender_raw = core::ptr::null_mut();
+        self.context.get().detach();
     }
 }
 
 impl AUGraphRenderNotifyStream {
     /// Subscribe to `AUGraphAddRenderNotify` using a real-time-safe SPSC handoff.
     pub fn subscribe(graph: &AUGraph, capacity: usize) -> Result<Self> {
-        if capacity == 0 {
-            return Err(invalid_capacity("AUGraphRenderNotifyStream::subscribe"));
-        }
-
-        let ring_capacity = capacity.min(RENDER_NOTIFY_STREAM_MAX_CAPACITY);
-        let (sender, inner) =
-            SpscRing::<RenderNotifyEvent, RENDER_NOTIFY_STREAM_MAX_CAPACITY>::with_capacity(
-                ring_capacity,
-            );
-        let sender_raw = RenderNotifyBox::new(sender);
+        let (inner, context) = event_channel(capacity, "AUGraphRenderNotifyStream::subscribe")?;
         let graph = graph.retained()?;
 
-        if let Err(error) = unsafe { graph.add_render_notify(render_notify_cb, sender_raw.cast()) }
-        {
-            unsafe { RenderNotifyBox::release(sender_raw) };
-            return Err(error);
-        }
+        unsafe { graph.add_render_notify(render_notify_cb, context.as_ptr()) }?;
+        graph.adopt_context(
+            context.retained_ptr(),
+            EventContext::<RenderNotifyEvent>::RELEASE,
+        );
 
         Ok(Self {
             inner,
-            sender_raw,
+            context,
             graph,
         })
     }
 
-    pub const fn next(&self) -> RenderNotifyNext<'_> {
+    pub const fn next(&self) -> EventNext<'_, RenderNotifyEvent> {
         self.inner.pop_async()
     }
 
@@ -424,5 +377,80 @@ impl AUGraphRenderNotifyStream {
 
     pub fn buffered_count(&self) -> usize {
         self.inner.buffered_count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    use doom_fish_utils::spsc::SpscRing;
+
+    use super::{DetachableProducer, STREAM_MAX_CAPACITY};
+
+    #[test]
+    fn detach_frees_the_producer_and_later_pushes_are_dropped() {
+        let (producer, consumer) = SpscRing::<u32, STREAM_MAX_CAPACITY>::with_capacity(4);
+        let slot = DetachableProducer::new(producer);
+        slot.push(1);
+        slot.push(2);
+        assert!(slot.is_attached());
+
+        slot.detach();
+        assert!(!slot.is_attached());
+        assert!(consumer.is_closed());
+        slot.push(3);
+
+        assert_eq!(consumer.pop(), Some(1));
+        assert_eq!(consumer.pop(), Some(2));
+        assert_eq!(consumer.pop(), None);
+    }
+
+    #[test]
+    fn full_ring_drops_the_oldest_event() {
+        let (producer, consumer) = SpscRing::<u32, STREAM_MAX_CAPACITY>::with_capacity(2);
+        let slot = DetachableProducer::new(producer);
+        for value in 0..5 {
+            slot.push(value);
+        }
+        assert_eq!(consumer.pop(), Some(3));
+        assert_eq!(consumer.pop(), Some(4));
+        assert_eq!(consumer.pop(), None);
+    }
+
+    #[test]
+    fn detach_waits_for_a_concurrent_pusher() {
+        for _ in 0..200 {
+            let (producer, consumer) = SpscRing::<u64, STREAM_MAX_CAPACITY>::with_capacity(64);
+            let slot = Arc::new(DetachableProducer::new(producer));
+            let running = Arc::new(AtomicBool::new(true));
+            let pusher = {
+                let slot = Arc::clone(&slot);
+                let running = Arc::clone(&running);
+                thread::spawn(move || {
+                    let mut value = 0_u64;
+                    while running.load(Ordering::Relaxed) {
+                        slot.push(value);
+                        value += 1;
+                    }
+                    value
+                })
+            };
+            while consumer.buffered_count() == 0 {
+                std::hint::spin_loop();
+            }
+            slot.detach();
+            assert!(consumer.is_closed());
+            running.store(false, Ordering::Relaxed);
+            let pushed = pusher.join().expect("pusher thread");
+            assert!(pushed > 0);
+            let mut drained = 0;
+            while consumer.pop().is_some() {
+                drained += 1;
+            }
+            assert!(drained > 0);
+        }
     }
 }
