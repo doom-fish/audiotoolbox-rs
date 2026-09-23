@@ -234,12 +234,38 @@ impl ExtAudioFile {
         Ok(BorrowedAudioConverter::new(raw))
     }
 
+    fn check_client_layout(
+        &self,
+        operation: &'static str,
+        buffer: &InterleavedAudioBuffer,
+    ) -> Result<AudioStreamBasicDescription> {
+        let client = self.client_data_format()?;
+        if !client.is_interleaved() && client.mChannelsPerFrame > 1 {
+            return Err(AudioToolboxError::message(
+                operation,
+                "the client format is non-interleaved; InterleavedAudioBuffer needs an interleaved client format",
+            ));
+        }
+        if client.mBytesPerFrame != buffer.bytes_per_frame() {
+            return Err(AudioToolboxError::message(
+                operation,
+                format!(
+                    "the buffer has {} bytes per frame but the client format has {}",
+                    buffer.bytes_per_frame(),
+                    client.mBytesPerFrame
+                ),
+            ));
+        }
+        Ok(client)
+    }
+
     /// Wraps `ExtAudioFileRead`.
     pub fn read_interleaved(
         &self,
         buffer: &mut InterleavedAudioBuffer,
         frames: u32,
     ) -> Result<u32> {
+        self.check_client_layout("ExtAudioFileRead", buffer)?;
         let mut io_number_frames = frames.min(buffer.frame_capacity());
         let raw = buffer.raw_mut_ptr();
         let status = unsafe {
@@ -255,6 +281,17 @@ impl ExtAudioFile {
 
     /// Wraps `ExtAudioFileWrite`.
     pub fn write_interleaved(&self, frames: u32, buffer: &InterleavedAudioBuffer) -> Result<()> {
+        let client = self.check_client_layout("ExtAudioFileWrite", buffer)?;
+        let needed = u64::from(frames) * u64::from(client.mBytesPerFrame);
+        if needed > u64::from(buffer.valid_byte_size()) {
+            return Err(AudioToolboxError::message(
+                "ExtAudioFileWrite",
+                format!(
+                    "{frames} frames need {needed} bytes but the buffer holds {} valid bytes",
+                    buffer.valid_byte_size()
+                ),
+            ));
+        }
         let status = unsafe {
             ffi::ext_audio_file::at_ext_audio_file_write(self.raw.cast(), frames, buffer.raw_ptr())
         };
