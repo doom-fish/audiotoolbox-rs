@@ -3,10 +3,23 @@
 Sampled the top 300 unique public symbols across `AudioToolbox.framework`, `AudioUnit.framework`, and `AVFAudio.framework`, ranked by cross-header occurrence count after deduplicating duplicate declarations by symbol name and filtering macOS-unavailable declarations.
 
 SDK_PUBLIC_SYMBOLS: 300
-VERIFIED: 298
+VERIFIED: 244
 GAPS: 0
+PLACEHOLDER: 54
 EXEMPT: 2
-COVERAGE_PCT: 100.0%
+COVERAGE_PCT: 81.9%
+
+
+> **What these numbers measure (corrected in 0.5.0).** The 300 symbols are a
+> self-selected sample ranked by how often a name occurs across the headers, not
+> the full SDK surface, and the sample was generated against MacOSX26.2.sdk and has
+> not been regenerated for newer SDKs. 🟢 VERIFIED only means a Rust item of that
+> name exists; for C types and structs this is often just the raw `#[repr(C)]`
+> layout (for example `AudioBufferList`), not a safe wrapper. Objective-C classes
+> that only have an opaque handle with no methods, protocols that only have an
+> empty marker trait, and block typedefs aliased to raw pointers are listed under
+> 🟡 PLACEHOLDER and are no longer counted as VERIFIED. See `COVERAGE.md` for the
+> header-by-header status of the functions.
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
@@ -68,44 +81,27 @@ COVERAGE_PCT: 100.0%
 | `AVAudioChannelCount` | type | `AVAudioTypes.h` | AVAudioFormat::standard, AVAudioFormat::channel_count |
 | `CAClockRef` | type | `CoreAudioClock.h` | generated_c_types::CAClockRef |
 | `AVAudioSequencerInfoDictionaryKey` | type | `AVAudioSequencer.h` | AVAudioSequencerInfoDictionaryKey |
-| `AVAudioTime` | interface | `AVAudioTime.h` | AVAudioTime |
 | `AVMusicTimeStamp` | type | `AVAudioTypes.h` | AVMusicTimeStamp |
 | `AUValue` | type | `AUAudioUnit.h` | AUValue |
-| `AVAudioMixing` | protocol | `AVAudioMixing.h` | AVAudioMixing trait |
 | `AudioCodec` | type | `AudioCodec.h` | generated_c_types::AudioCodec |
 | `AudioUnitParameter` | struct | `AUComponent.h` | AudioUnitParameter |
 | `AVAudioPCMBuffer` | interface | `AVAudioBuffer.h` | AVAudioPCMBuffer |
 | `AudioUnitRenderActionFlags` | type | `AUAudioUnit.h` | AudioUnitRenderActionFlags |
-| `AVAudioUnit` | interface | `AVAudioUnit.h` | AVAudioUnit |
-| `AVMusicEvent` | interface | `AVMusicEvents.h` | AVMusicEvent |
 | `MusicEventIterator` | type | `MusicPlayer.h` | MusicEventIterator |
-| `AVSpeechSynthesizer` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesizer |
 | `AudioCodecPropertyID` | type | `AudioCodec.h` | generated_c_types::AudioCodecPropertyID |
-| `AVSpeechUtterance` | interface | `AVSpeechSynthesis.h` | AVSpeechUtterance |
 | `AudioFileMarker` | struct | `AudioFile.h` | AudioFileMarker |
 | `AUEventSampleTime` | type | `AUAudioUnit.h` | AUEventSampleTime |
 | `AVAudioFramePosition` | type | `AVAudioTypes.h` | AVAudioFramePosition |
-| `AUParameter` | interface | `AUParameters.h` | AUParameter |
-| `AVAudioBuffer` | interface | `AVAudioBuffer.h` | AVAudioBuffer |
-| `AVAudioUnitEffect` | interface | `AVAudioUnitEffect.h` | AVAudioUnitEffect |
-| `AVMusicTrack` | interface | `AVAudioSequencer.h` | AVMusicTrack |
 | `AudioFileRegion` | struct | `AudioFile.h` | AudioFileRegion |
 | `CAClockTime` | struct | `CoreAudioClock.h` | generated_c_types::CAClockTime |
 | `AUParameterAddress` | type | `AUAudioUnit.h` | AUParameterAddress |
-| `AUParameterNode` | interface | `AUParameters.h` | AUParameterNode |
 | `AudioFileMarkerList` | struct | `AudioFile.h` | AudioFileMarkerList |
 | `AUParameterListenerRef` | type | `AudioUnitUtilities.h` | generated_c_types::AUParameterListenerRef |
 | `AVAudioSessionPolarPattern` | type | `AVAudioSessionRoute.h` | AVAudioSessionPolarPattern |
 | `AudioUnitParameterOptions` | type | `AudioUnitProperties.h` | AudioUnitParameterOptions |
-| `AUAudioUnitPreset` | interface | `AUAudioUnit.h` | AUAudioUnitPreset |
-| `AVAudioConnectionPoint` | interface | `AVAudioConnectionPoint.h` | AVAudioConnectionPoint |
-| `AVAudioPlayer` | interface | `AVAudioPlayer.h` | AVAudioPlayer |
-| `AVAudioRecorder` | interface | `AVAudioRecorder.h` | AVAudioRecorder |
-| `AVSpeechSynthesisMarker` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesisMarker |
 | `GetAudioUnitParameterDisplayType` | function | `AudioUnitProperties.h` | get_audio_unit_parameter_display_type |
 | `AVAudio3DPoint` | struct | `AVAudioTypes.h` | AVAudio3DPoint |
 | `AudioUnitEvent` | struct | `AudioUnitUtilities.h` | generated_c_types::AudioUnitEvent |
-| `AUParameterObserverToken` | type | `AUParameters.h` | AUParameterObserverToken |
 | `AURenderEvent` | type | `AUAudioUnitImplementation.h` | AURenderEvent |
 | `AVAudioSessionOrientation` | type | `AVAudioSessionRoute.h` | AVAudioSessionOrientation |
 | `AudioSessionPropertyID` | type | `AudioSession.h` | generated_c_types::AudioSessionPropertyID |
@@ -115,17 +111,11 @@ COVERAGE_PCT: 100.0%
 | `AudioFile_ReadProc` | callback | `AudioFile.h` | generated_c_types::AudioFile_ReadProc |
 | `AudioFile_SetSizeProc` | callback | `AudioFile.h` | generated_c_types::AudioFile_SetSizeProc |
 | `AudioFile_WriteProc` | callback | `AudioFile.h` | generated_c_types::AudioFile_WriteProc |
-| `AUAudioUnitBus` | interface | `AUAudioUnitImplementation.h` | AUAudioUnitBus |
-| `AVAudioUnitComponent` | interface | `AVAudioUnitComponent.h` | AVAudioUnitComponent |
 | `MIDIEventList` | struct | `MusicDevice.h` | generated_c_types::MIDIEventList |
 | `AVAudio3DVector` | type | `AVAudioTypes.h` | AVAudio3DVector |
 | `MIDIEndpointRef` | type | `MusicPlayer.h` | MIDIEndpointRef |
 | `MusicDeviceGroupID` | type | `MusicDevice.h` | MusicDeviceGroupID |
 | `AudioUnitPropertyListenerProc` | callback | `AUComponent.h` | AudioUnitPropertyListenerProc |
-| `AUParameterGroup` | interface | `AUParameters.h` | AUParameterGroup |
-| `AVAudioUnitTimeEffect` | interface | `AVAudioUnitTimeEffect.h` | AVAudioUnitTimeEffect |
-| `AVMIDIChannelEvent` | interface | `AVMusicEvents.h` | AVMIDIChannelEvent |
-| `AVSpeechSynthesisVoice` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesisVoice |
 | `AVAudio3DAngularOrientation` | struct | `AVAudioTypes.h` | AVAudio3DAngularOrientation |
 | `AVAudio3DVectorOrientation` | struct | `AVAudioTypes.h` | AVAudio3DVectorOrientation |
 | `CAFMarker` | struct | `CAFFile.h` | generated_c_types::CAFMarker |
@@ -137,11 +127,6 @@ COVERAGE_PCT: 100.0%
 | `AudioQueueProcessingTapRef` | type | `AudioQueue.h` | generated_c_types::AudioQueueProcessingTapRef |
 | `CAClockBeats` | type | `CoreAudioClock.h` | generated_c_types::CAClockBeats |
 | `MusicDeviceInstrumentID` | type | `MusicDevice.h` | MusicDeviceInstrumentID |
-| `AUAudioUnitBusArray` | interface | `AUAudioUnitImplementation.h` | AUAudioUnitBusArray |
-| `AVAudioIONode` | interface | `AVAudioIONode.h` | AVAudioIONode |
-| `AVAudioMixerNode` | interface | `AVAudioMixerNode.h` | AVAudioMixerNode |
-| `AVSpeechSynthesisProviderRequest` | interface | `AVSpeechSynthesisProvider.h` | AVSpeechSynthesisProviderRequest |
-| `AVSpeechSynthesisProviderVoice` | interface | `AVSpeechSynthesisProvider.h` | AVSpeechSynthesisProviderVoice |
 | `AUNodeInteraction` | struct | `AUGraph.h` | AUNodeInteraction |
 | `AUNumVersion` | struct | `AudioUnitProperties.h` | generated_c_types::AUNumVersion |
 | `AURenderCallbackStruct` | struct | `AudioUnitProperties.h` | AURenderCallbackStruct |
@@ -154,12 +139,7 @@ COVERAGE_PCT: 100.0%
 | `MIDIChannelNumber` | type | `AUAudioUnit.h` | MIDIChannelNumber |
 | `MIDIPacketList` | type | `AudioUnitProperties.h` | generated_c_types::MIDIPacketList |
 | `NoteInstanceID` | type | `MusicDevice.h` | NoteInstanceID |
-| `AUMIDIEventListBlock` | callback | `AudioUnitProperties.h` | generated_c_types::AUMIDIEventListBlock |
-| `AVAudioNodeCompletionHandler` | callback | `AVAudioTypes.h` | AVAudioNodeCompletionHandler |
-| `AVAudioPlayerNodeCompletionHandler` | callback | `AVAudioPlayerNode.h` | AVAudioPlayerNodeCompletionHandler |
-| `AUParameterTree` | interface | `AUParameters.h` | AUParameterTree |
 | `AVAudioSequencer` | interface | `AVAudioSequencer.h` | AVAudioSequencer |
-| `AVAudioUnitMIDIInstrument` | interface | `AVAudioUnitMIDIInstrument.h` | AVAudioUnitMIDIInstrument |
 | `AUNodeRenderCallback` | struct | `AUGraph.h` | AUNodeRenderCallback |
 | `AVAudioVoiceProcessingOtherAudioDuckingConfiguration` | struct | `AVAudioIONode.h` | AVAudioVoiceProcessingOtherAudioDuckingConfiguration |
 | `AudioCodecMagicCookieInfo` | struct | `AudioCodec.h` | generated_c_types::AudioCodecMagicCookieInfo |
@@ -190,19 +170,6 @@ COVERAGE_PCT: 100.0%
 | `CAClockPropertyID` | type | `CoreAudioClock.h` | generated_c_types::CAClockPropertyID |
 | `CAClockSeconds` | type | `CoreAudioClock.h` | generated_c_types::CAClockSeconds |
 | `CAClockTempo` | type | `CoreAudioClock.h` | generated_c_types::CAClockTempo |
-| `AUMIDIOutputEventBlock` | callback | `AUAudioUnit.h` | AUMIDIOutputEventBlock |
-| `AURenderPullInputBlock` | callback | `AUAudioUnit.h` | AURenderPullInputBlock |
-| `AVAudioConverter` | interface | `AVAudioConverter.h` | AVAudioConverter |
-| `AVAudioSessionCapability` | interface | `AVAudioSessionRoute.h` | AVAudioSessionCapability |
-| `AVAudioUnitComponentManager` | interface | `AVAudioUnitComponent.h` | AVAudioUnitComponentManager |
-| `AVAudioUnitEQ` | interface | `AVAudioUnitEQ.h` | AVAudioUnitEQ |
-| `AVAudioUnitReverb` | interface | `AVAudioUnitReverb.h` | AVAudioUnitReverb |
-| `AUMessageChannel` | protocol | `AUAudioUnit.h` | AUMessageChannel trait |
-| `AVAudio3DMixing` | protocol | `AVAudioMixing.h` | AVAudio3DMixing trait |
-| `AVAudioPlayerDelegate` | protocol | `AVAudioPlayer.h` | AVAudioPlayerDelegate trait |
-| `AVAudioRecorderDelegate` | protocol | `AVAudioRecorder.h` | AVAudioRecorderDelegate trait |
-| `AVAudioStereoMixing` | protocol | `AVAudioMixing.h` | AVAudioStereoMixing trait |
-| `AVSpeechSynthesizerDelegate` | protocol | `AVSpeechSynthesis.h` | AVSpeechSynthesizerDelegate trait |
 | `AUChannelInfo` | struct | `AudioUnitProperties.h` | generated_c_types::AUChannelInfo |
 | `AUDependentParameter` | struct | `AudioUnitProperties.h` | generated_c_types::AUDependentParameter |
 | `AUHostIdentifier` | struct | `AudioUnitProperties.h` | generated_c_types::AUHostIdentifier |
@@ -286,7 +253,6 @@ COVERAGE_PCT: 100.0%
 | `AVSpeechSynthesisVoiceGender` | type | `AVSpeechSynthesis.h` | AVSpeechSynthesisVoiceGender |
 | `AudioComponentValidationResult` | type | `AudioComponent.h` | AudioComponentValidationResult |
 | `MusicEventType` | type | `MusicPlayer.h` | MusicEventType |
-| `AVSpeechSynthesizerBufferCallback` | callback | `AVSpeechSynthesis.h` | AVSpeechSynthesizerBufferCallback |
 | `AudioConverterComplexInputDataProc` | callback | `AudioConverter.h` | generated_c_types::AudioConverterComplexInputDataProc |
 | `AudioQueuePropertyListenerProc` | callback | `AudioQueue.h` | generated_c_types::AudioQueuePropertyListenerProc |
 | `AudioSessionPropertyListener` | callback | `AudioSession.h` | generated_c_types::AudioSessionPropertyListener |
@@ -302,6 +268,58 @@ COVERAGE_PCT: 100.0%
 | `SetUserDataFDF` | callback | `AudioFileComponent.h` | generated_c_types::SetUserDataFDF |
 | `WriteBytesFDF` | callback | `AudioFileComponent.h` | generated_c_types::WriteBytesFDF |
 | `WritePacketsFDF` | callback | `AudioFileComponent.h` | generated_c_types::WritePacketsFDF |
+
+## 🟡 PLACEHOLDER (type only, no methods)
+
+| Symbol | Kind | Header | Placeholder |
+| --- | --- | --- | --- |
+| `AVAudioTime` | interface | `AVAudioTime.h` | AVAudioTime |
+| `AVAudioMixing` | protocol | `AVAudioMixing.h` | AVAudioMixing trait |
+| `AVAudioUnit` | interface | `AVAudioUnit.h` | AVAudioUnit |
+| `AVMusicEvent` | interface | `AVMusicEvents.h` | AVMusicEvent |
+| `AVSpeechSynthesizer` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesizer |
+| `AVSpeechUtterance` | interface | `AVSpeechSynthesis.h` | AVSpeechUtterance |
+| `AUParameter` | interface | `AUParameters.h` | AUParameter |
+| `AVAudioBuffer` | interface | `AVAudioBuffer.h` | AVAudioBuffer |
+| `AVAudioUnitEffect` | interface | `AVAudioUnitEffect.h` | AVAudioUnitEffect |
+| `AVMusicTrack` | interface | `AVAudioSequencer.h` | AVMusicTrack |
+| `AUParameterNode` | interface | `AUParameters.h` | AUParameterNode |
+| `AUAudioUnitPreset` | interface | `AUAudioUnit.h` | AUAudioUnitPreset |
+| `AVAudioConnectionPoint` | interface | `AVAudioConnectionPoint.h` | AVAudioConnectionPoint |
+| `AVAudioPlayer` | interface | `AVAudioPlayer.h` | AVAudioPlayer |
+| `AVAudioRecorder` | interface | `AVAudioRecorder.h` | AVAudioRecorder |
+| `AVSpeechSynthesisMarker` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesisMarker |
+| `AUParameterObserverToken` | type | `AUParameters.h` | AUParameterObserverToken |
+| `AUAudioUnitBus` | interface | `AUAudioUnitImplementation.h` | AUAudioUnitBus |
+| `AVAudioUnitComponent` | interface | `AVAudioUnitComponent.h` | AVAudioUnitComponent |
+| `AUParameterGroup` | interface | `AUParameters.h` | AUParameterGroup |
+| `AVAudioUnitTimeEffect` | interface | `AVAudioUnitTimeEffect.h` | AVAudioUnitTimeEffect |
+| `AVMIDIChannelEvent` | interface | `AVMusicEvents.h` | AVMIDIChannelEvent |
+| `AVSpeechSynthesisVoice` | interface | `AVSpeechSynthesis.h` | AVSpeechSynthesisVoice |
+| `AUAudioUnitBusArray` | interface | `AUAudioUnitImplementation.h` | AUAudioUnitBusArray |
+| `AVAudioIONode` | interface | `AVAudioIONode.h` | AVAudioIONode |
+| `AVAudioMixerNode` | interface | `AVAudioMixerNode.h` | AVAudioMixerNode |
+| `AVSpeechSynthesisProviderRequest` | interface | `AVSpeechSynthesisProvider.h` | AVSpeechSynthesisProviderRequest |
+| `AVSpeechSynthesisProviderVoice` | interface | `AVSpeechSynthesisProvider.h` | AVSpeechSynthesisProviderVoice |
+| `AUMIDIEventListBlock` | callback | `AudioUnitProperties.h` | generated_c_types::AUMIDIEventListBlock |
+| `AVAudioNodeCompletionHandler` | callback | `AVAudioTypes.h` | AVAudioNodeCompletionHandler |
+| `AVAudioPlayerNodeCompletionHandler` | callback | `AVAudioPlayerNode.h` | AVAudioPlayerNodeCompletionHandler |
+| `AUParameterTree` | interface | `AUParameters.h` | AUParameterTree |
+| `AVAudioUnitMIDIInstrument` | interface | `AVAudioUnitMIDIInstrument.h` | AVAudioUnitMIDIInstrument |
+| `AUMIDIOutputEventBlock` | callback | `AUAudioUnit.h` | AUMIDIOutputEventBlock |
+| `AURenderPullInputBlock` | callback | `AUAudioUnit.h` | AURenderPullInputBlock |
+| `AVAudioConverter` | interface | `AVAudioConverter.h` | AVAudioConverter |
+| `AVAudioSessionCapability` | interface | `AVAudioSessionRoute.h` | AVAudioSessionCapability |
+| `AVAudioUnitComponentManager` | interface | `AVAudioUnitComponent.h` | AVAudioUnitComponentManager |
+| `AVAudioUnitEQ` | interface | `AVAudioUnitEQ.h` | AVAudioUnitEQ |
+| `AVAudioUnitReverb` | interface | `AVAudioUnitReverb.h` | AVAudioUnitReverb |
+| `AUMessageChannel` | protocol | `AUAudioUnit.h` | AUMessageChannel trait |
+| `AVAudio3DMixing` | protocol | `AVAudioMixing.h` | AVAudio3DMixing trait |
+| `AVAudioPlayerDelegate` | protocol | `AVAudioPlayer.h` | AVAudioPlayerDelegate trait |
+| `AVAudioRecorderDelegate` | protocol | `AVAudioRecorder.h` | AVAudioRecorderDelegate trait |
+| `AVAudioStereoMixing` | protocol | `AVAudioMixing.h` | AVAudioStereoMixing trait |
+| `AVSpeechSynthesizerDelegate` | protocol | `AVSpeechSynthesis.h` | AVSpeechSynthesizerDelegate trait |
+| `AVSpeechSynthesizerBufferCallback` | callback | `AVSpeechSynthesis.h` | AVSpeechSynthesizerBufferCallback |
 | `AVAudioEnvironmentNode` | interface | `AVAudioEnvironmentNode.h` | AVAudioEnvironmentNode |
 | `AVAudioPlayerNode` | interface | `AVAudioPlayerNode.h` | AVAudioPlayerNode |
 | `AVAudioUnitDelay` | interface | `AVAudioUnitDelay.h` | AVAudioUnitDelay |

@@ -2,22 +2,24 @@
 
 This audit tracks every public type/function discovered in the targeted AudioToolbox headers. Constants/macros are intentionally omitted except where they need an explicit skip note.
 
+Status reflects the safe Rust API as of 0.5.0: ✅ means a safe wrapper exists, 🟡 means the symbol is not (or only partly) wrapped by the safe API, and ⏭️ means it is skipped on purpose. The summary counts the rows of the tables below; before 0.5.0 it over-counted AudioFile, AudioUnit and AudioQueue by one row each. The macOS 26 converter additions (`AudioConverterFillComplexBufferRealtimeSafe`, `AudioConverterNewWithOptions`, `AudioConverterPrepare`) are not wrapped yet.
+
 ## Summary
 
 | Area | APIs tracked | ✅ | 🟡 | ⏭️ |
 | --- | ---: | ---: | ---: | ---: |
-| AudioFile | 53 | 10 | 43 | 0 |
+| AudioFile | 52 | 10 | 42 | 0 |
 | ExtAudioFile | 16 | 8 | 8 | 0 |
-| AudioConverter | 28 | 9 | 19 | 0 |
+| AudioConverter | 28 | 10 | 15 | 3 |
 | AudioFormat | 12 | 2 | 10 | 0 |
-| AudioComponent | 24 | 11 | 13 | 0 |
-| AudioUnit | 55 | 8 | 47 | 0 |
+| AudioComponent | 24 | 13 | 11 | 0 |
+| AudioUnit | 54 | 8 | 46 | 0 |
 | AudioOutputUnit | 4 | 2 | 2 | 0 |
-| AudioQueue | 58 | 13 | 45 | 0 |
+| AudioQueue | 57 | 19 | 38 | 0 |
 | Music | 95 | 18 | 77 | 0 |
-| AudioServices | 18 | 6 | 11 | 1 |
+| AudioServices | 18 | 8 | 9 | 1 |
 | CAFFile | 21 | 2 | 19 | 0 |
-| AudioFileStream | 13 | 6 | 7 | 0 |
+| AudioFileStream | 13 | 7 | 6 | 0 |
 
 ## AudioFile
 
@@ -107,20 +109,20 @@ Source header: `AudioConverter.h`
 
 | Kind | Symbol | Status | Notes |
 | --- | --- | --- | --- |
-| function | `AudioConverterPrepare` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
+| function | `AudioConverterPrepare` | ⏭️ skipped | macOS 26 addition; not wrapped yet. |
 | function | `AudioConverterNew` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterNewSpecific` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioConverterNewWithOptions` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
+| function | `AudioConverterNewWithOptions` | ⏭️ skipped | macOS 26 addition; not wrapped yet. |
 | function | `AudioConverterDispose` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterReset` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterGetPropertyInfo` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterGetProperty` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterSetProperty` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioConverterConvertBuffer` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
-| function | `AudioConverterFillComplexBuffer` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioConverterFillComplexBufferRealtimeSafe` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
+| function | `AudioConverterFillComplexBuffer` | ✅ implemented | `AudioConverter::fill_complex_buffer` / `finish`: the converter owns queued input and ends the stream only on `finish`. |
+| function | `AudioConverterFillComplexBufferRealtimeSafe` | ⏭️ skipped | macOS 26 addition; not wrapped yet. |
 | function | `AudioConverterFillComplexBufferWithPacketDependencies` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
-| function | `AudioConverterConvertComplexBuffer` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
+| function | `AudioConverterConvertComplexBuffer` | ✅ implemented | `convert_complex_buffer` with `OwnedAudioBufferList` values checked against the converter formats. |
 | function | `AudioConverterFillBuffer` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
 | type | `AudioConverterRef` | ✅ implemented | Available through the safe Rust surface or raw-ffi feature. |
 | type | `AudioConverterComplexInputDataProc` | 🟡 partial | Streaming callback plumbing beyond the one-shot helper remains partial. |
@@ -173,8 +175,8 @@ Source header: `AudioComponent.h`
 | function | `AudioComponentInstanceGetComponent` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioComponentInstanceCanDo` | 🟡 partial | Registration and listener APIs remain partial. |
 | function | `AudioComponentRegister` | 🟡 partial | Registration and listener APIs remain partial. |
-| function | `AudioComponentCopyConfigurationInfo` | 🟡 partial | Registration and listener APIs remain partial. |
-| function | `AudioComponentValidate` | 🟡 partial | Registration and listener APIs remain partial. |
+| function | `AudioComponentCopyConfigurationInfo` | ✅ implemented | `AudioComponent::copy_configuration_info` returns an owned `CFDictionary`. |
+| function | `AudioComponentValidate` | ✅ implemented | `AudioComponent::validate(Option<&CFDictionary>)`. |
 | function | `AudioComponentValidateWithResults` | 🟡 partial | Registration and listener APIs remain partial. |
 | type | `AudioComponent` | ✅ implemented | Available through the safe Rust surface or raw-ffi feature. |
 | type | `AudioComponentInstance` | ✅ implemented | Available through the safe Rust surface or raw-ffi feature. |
@@ -264,15 +266,15 @@ Source header: `AudioQueue.h`
 
 | Kind | Symbol | Status | Notes |
 | --- | --- | --- | --- |
-| function | `AudioQueueNewOutput` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioQueueNewInput` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
+| function | `AudioQueueNewOutput` | ✅ implemented | `AudioQueue::new_output` and `new_output_with_callback` (the Rust closure refills and re-enqueues buffers). |
+| function | `AudioQueueNewInput` | ✅ implemented | `AudioQueue::new_input_with_callback`; recording needs microphone permission and is not exercised by the tests. |
 | function | `AudioQueueNewOutputWithDispatchQueue` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueNewInputWithDispatchQueue` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueDispose` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioQueueAllocateBuffer` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioQueueAllocateBufferWithPacketDescriptions` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
-| function | `AudioQueueFreeBuffer` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
-| function | `AudioQueueEnqueueBuffer` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
+| function | `AudioQueueAllocateBufferWithPacketDescriptions` | ✅ implemented | `AudioQueue::allocate_buffer_with_packet_descriptions`. |
+| function | `AudioQueueFreeBuffer` | ✅ implemented | Freed when an `AudioQueueBufferHandle` is dropped. |
+| function | `AudioQueueEnqueueBuffer` | ✅ implemented | `AudioQueue::enqueue_buffer`, and from the callbacks when they return `true`. |
 | function | `AudioQueueEnqueueBufferWithParameters` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueStart` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioQueuePrime` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
@@ -293,8 +295,8 @@ Source header: `AudioQueue.h`
 | function | `AudioQueueDeviceGetCurrentTime` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueDeviceTranslateTime` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueDeviceGetNearestStartTime` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
-| function | `AudioQueueSetOfflineRenderFormat` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
-| function | `AudioQueueOfflineRender` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
+| function | `AudioQueueSetOfflineRenderFormat` | ✅ implemented | `AudioQueue::set_offline_render_format` (channel layout by tag). |
+| function | `AudioQueueOfflineRender` | ✅ implemented | `AudioQueue::offline_render`. |
 | function | `AudioQueueProcessingTapNew` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueProcessingTapDispose` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
 | function | `AudioQueueProcessingTapGetSourceAudio` | 🟡 partial | Input queues, buffer enqueue/dequeue, listeners, and timelines remain partial. |
@@ -432,8 +434,8 @@ Source header: `AudioServices.h`
 | --- | --- | --- | --- |
 | function | `AudioServicesCreateSystemSoundID` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioServicesDisposeSystemSoundID` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioServicesPlayAlertSoundWithCompletion` | 🟡 partial | Completion-block helpers and mobile-only behavior remain partial/skipped. |
-| function | `AudioServicesPlaySystemSoundWithCompletion` | 🟡 partial | Completion-block helpers and mobile-only behavior remain partial/skipped. |
+| function | `AudioServicesPlayAlertSoundWithCompletion` | ✅ implemented | `SystemSound::play_alert_with_completion`. |
+| function | `AudioServicesPlaySystemSoundWithCompletion` | ✅ implemented | `SystemSound::play_with_completion`. |
 | function | `AudioServicesGetPropertyInfo` | 🟡 partial | Completion-block helpers and mobile-only behavior remain partial/skipped. |
 | function | `AudioServicesGetProperty` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioServicesSetProperty` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
@@ -484,8 +486,8 @@ Source header: `AudioFileStream.h`
 | Kind | Symbol | Status | Notes |
 | --- | --- | --- | --- |
 | function | `AudioFileStreamOpen` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioFileStreamParseBytes` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
-| function | `AudioFileStreamSeek` | 🟡 partial | Seek helpers, callback data surfaces, and cached-property flags remain partial. |
+| function | `AudioFileStreamParseBytes` | ✅ implemented | `AudioFileStream::parse_bytes` returns the packets parsed by that call. |
+| function | `AudioFileStreamSeek` | ✅ implemented | `AudioFileStream::seek`. |
 | function | `AudioFileStreamGetPropertyInfo` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioFileStreamGetProperty` | ✅ implemented | Wrapped by the Swift bridge and surfaced through the safe Rust API. |
 | function | `AudioFileStreamSetProperty` | 🟡 partial | Seek helpers, callback data surfaces, and cached-property flags remain partial. |
