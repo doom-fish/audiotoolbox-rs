@@ -1,5 +1,18 @@
-use crate::{AudioQueueParameterId, AudioQueueParameterValue, AudioQueuePropertyId, OSStatus};
+use crate::{
+    AudioQueueBufferRef, AudioQueueParameterId, AudioQueueParameterValue, AudioQueuePropertyId,
+    AudioStreamBasicDescription, AudioStreamPacketDescription, AudioTimeStamp, OSStatus,
+};
 use std::ffi::c_void;
+
+pub type AudioQueueOutputProc = unsafe extern "C" fn(*mut c_void, *mut c_void, AudioQueueBufferRef);
+pub type AudioQueueInputProc = unsafe extern "C" fn(
+    *mut c_void,
+    *mut c_void,
+    AudioQueueBufferRef,
+    *const AudioTimeStamp,
+    u32,
+    *const AudioStreamPacketDescription,
+);
 
 unsafe extern "C" {
     /// Raw binding for `AudioQueueNewOutput`.
@@ -54,28 +67,58 @@ unsafe extern "C" {
         parameter_id: AudioQueueParameterId,
         value: AudioQueueParameterValue,
     ) -> OSStatus;
-    /// Raw binding for `AudioQueueAllocateBuffer`.
-    ///
-    /// # Safety
-    ///
-    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioQueueAllocateBuffer`.
+    pub fn at_audio_queue_new_output_with_callback(
+        format: *const AudioStreamBasicDescription,
+        callback: AudioQueueOutputProc,
+        context: *mut c_void,
+        release: unsafe extern "C" fn(*mut c_void),
+        out_handle: *mut *mut c_void,
+    ) -> OSStatus;
+    pub fn at_audio_queue_new_input_with_callback(
+        format: *const AudioStreamBasicDescription,
+        callback: AudioQueueInputProc,
+        context: *mut c_void,
+        release: unsafe extern "C" fn(*mut c_void),
+        out_handle: *mut *mut c_void,
+    ) -> OSStatus;
+    #[link_name = "AudioQueueAllocateBuffer"]
     pub fn at_audio_queue_allocate_buffer(
         raw_queue: *mut c_void,
         buffer_byte_size: u32,
-        out_handle: *mut *mut c_void,
+        out_buffer: *mut AudioQueueBufferRef,
     ) -> OSStatus;
-    /// Raw binding for `AudioQueueBufferRaw`.
-    ///
-    /// # Safety
-    ///
-    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioQueueBufferRaw`.
-    pub fn at_audio_queue_buffer_raw(handle: *mut c_void) -> *mut c_void;
-    /// Raw binding for `AudioQueueBufferRelease`.
-    ///
-    /// # Safety
-    ///
-    /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioQueueBufferRelease`.
-    pub fn at_audio_queue_buffer_release(handle: *mut c_void);
+    #[link_name = "AudioQueueAllocateBufferWithPacketDescriptions"]
+    pub fn at_audio_queue_allocate_buffer_with_packet_descriptions(
+        raw_queue: *mut c_void,
+        buffer_byte_size: u32,
+        number_packet_descriptions: u32,
+        out_buffer: *mut AudioQueueBufferRef,
+    ) -> OSStatus;
+    #[link_name = "AudioQueueFreeBuffer"]
+    pub fn at_audio_queue_free_buffer(
+        raw_queue: *mut c_void,
+        buffer: AudioQueueBufferRef,
+    ) -> OSStatus;
+    #[link_name = "AudioQueueEnqueueBuffer"]
+    pub fn at_audio_queue_enqueue_buffer(
+        raw_queue: *mut c_void,
+        buffer: AudioQueueBufferRef,
+        number_packet_descriptions: u32,
+        packet_descriptions: *const AudioStreamPacketDescription,
+    ) -> OSStatus;
+    #[link_name = "AudioQueueSetOfflineRenderFormat"]
+    pub fn at_audio_queue_set_offline_render_format(
+        raw_queue: *mut c_void,
+        format: *const AudioStreamBasicDescription,
+        layout: *const c_void,
+    ) -> OSStatus;
+    #[link_name = "AudioQueueOfflineRender"]
+    pub fn at_audio_queue_offline_render(
+        raw_queue: *mut c_void,
+        time_stamp: *const AudioTimeStamp,
+        buffer: AudioQueueBufferRef,
+        number_frames: u32,
+    ) -> OSStatus;
     /// Raw binding for `AudioQueueStart`.
     ///
     /// # Safety

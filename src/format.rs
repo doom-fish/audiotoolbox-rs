@@ -26,7 +26,7 @@ use std::ffi::c_void;
 pub struct AudioFormat;
 
 #[repr(C)]
-struct TaggedChannelLayout {
+pub(crate) struct TaggedChannelLayout {
     tag: AudioChannelLayoutTag,
     bitmap: u32,
     number_channel_descriptions: u32,
@@ -34,7 +34,7 @@ struct TaggedChannelLayout {
 }
 
 impl TaggedChannelLayout {
-    const fn new(tag: AudioChannelLayoutTag) -> Self {
+    pub(crate) const fn new(tag: AudioChannelLayoutTag) -> Self {
         Self {
             tag,
             bitmap: 0,

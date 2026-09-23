@@ -68,7 +68,9 @@ pub use audio_converter::{
 pub use audio_file::{AudioFile, PacketData, PropertyInfo};
 pub use audio_file_component::AudioFileComponent;
 pub use audio_file_stream::AudioFileStream;
-pub use audio_queue::{AudioQueue, AudioQueueBufferHandle};
+pub use audio_queue::{
+    AudioQueue, AudioQueueBufferHandle, AudioQueueInputBuffer, AudioQueueOutputBuffer,
+};
 pub use audio_services::SystemSound;
 pub use audio_unit::AudioUnit;
 pub use avfaudio::{AVAudioEngine, AVAudioFormat, AVAudioNode, AVAudioPCMBuffer, AVAudioSequencer};

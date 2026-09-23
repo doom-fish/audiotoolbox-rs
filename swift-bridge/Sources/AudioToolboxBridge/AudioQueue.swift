@@ -6,25 +6,50 @@ import CoreFoundation
 import Foundation
 
 private final class AudioQueueBox {
-    var value: AudioQueueRef?
+    let value: AudioQueueRef
+    let contexts = AdoptedContexts()
 
     init(_ value: AudioQueueRef) {
         self.value = value
     }
 
     deinit {
-        if let value {
-            AudioQueueDispose(value, true)
-        }
+        AudioQueueDispose(value, true)
+        contexts.releaseAll()
     }
 }
 
-private final class AudioQueueBufferBox {
-    let value: AudioQueueBufferRef
+public typealias AudioQueueOutputProc = @convention(c) (
+    UnsafeMutableRawPointer?,
+    AudioQueueRef,
+    AudioQueueBufferRef
+) -> Void
 
-    init(_ value: AudioQueueBufferRef) {
-        self.value = value
+public typealias AudioQueueInputProc = @convention(c) (
+    UnsafeMutableRawPointer?,
+    AudioQueueRef,
+    AudioQueueBufferRef,
+    UnsafePointer<AudioTimeStamp>,
+    UInt32,
+    UnsafePointer<AudioStreamPacketDescription>?
+) -> Void
+
+private func finishQueueCreation(
+    _ status: OSStatus,
+    _ queue: AudioQueueRef?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>
+) -> Int32 {
+    if status == noErr, let queue {
+        let box = AudioQueueBox(queue)
+        adoptContext(into: box.contexts, context, release)
+        outHandle.pointee = retainObject(box)
+    } else {
+        outHandle.pointee = nil
+        adoptContext(into: nil, context, release)
     }
+    return status
 }
 
 private func audioQueue(from raw: UnsafeMutableRawPointer?) -> AudioQueueRef {
@@ -58,6 +83,40 @@ public func at_audio_queue_new_output(
         outHandle.pointee = nil
     }
     return status
+}
+
+@_cdecl("at_audio_queue_new_output_with_callback")
+public func at_audio_queue_new_output_with_callback(
+    _ format: UnsafePointer<AudioStreamBasicDescription>?,
+    _ callback: AudioQueueOutputProc?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Int32 {
+    guard let format, let callback, let outHandle else {
+        adoptContext(into: nil, context, release)
+        return Int32(kAudio_ParamError)
+    }
+    var queue: AudioQueueRef?
+    let status = AudioQueueNewOutput(format, callback, context, nil, nil, 0, &queue)
+    return finishQueueCreation(status, queue, context, release, outHandle)
+}
+
+@_cdecl("at_audio_queue_new_input_with_callback")
+public func at_audio_queue_new_input_with_callback(
+    _ format: UnsafePointer<AudioStreamBasicDescription>?,
+    _ callback: AudioQueueInputProc?,
+    _ context: UnsafeMutableRawPointer?,
+    _ release: ContextRelease?,
+    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+) -> Int32 {
+    guard let format, let callback, let outHandle else {
+        adoptContext(into: nil, context, release)
+        return Int32(kAudio_ParamError)
+    }
+    var queue: AudioQueueRef?
+    let status = AudioQueueNewInput(format, callback, context, nil, nil, 0, &queue)
+    return finishQueueCreation(status, queue, context, release, outHandle)
 }
 
 @_cdecl("at_audio_queue_raw")
@@ -122,43 +181,6 @@ public func at_audio_queue_set_parameter(
     _ value: Float
 ) -> Int32 {
     AudioQueueSetParameter(audioQueue(from: rawQueue), parameterID, value)
-}
-
-@_cdecl("at_audio_queue_allocate_buffer")
-public func at_audio_queue_allocate_buffer(
-    _ rawQueue: UnsafeMutableRawPointer?,
-    _ bufferByteSize: UInt32,
-    _ outHandle: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
-) -> Int32 {
-    guard let outHandle else {
-        return Int32(kAudio_ParamError)
-    }
-
-    var buffer: AudioQueueBufferRef?
-    let status = AudioQueueAllocateBuffer(audioQueue(from: rawQueue), bufferByteSize, &buffer)
-    if status == noErr, let buffer {
-        outHandle.pointee = retainObject(AudioQueueBufferBox(buffer))
-    } else {
-        outHandle.pointee = nil
-    }
-    return status
-}
-
-@_cdecl("at_audio_queue_buffer_raw")
-public func at_audio_queue_buffer_raw(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    guard let handle else {
-        return nil
-    }
-    let box: AudioQueueBufferBox = takeUnretained(handle)
-    return toRawPointer(box.value)
-}
-
-@_cdecl("at_audio_queue_buffer_release")
-public func at_audio_queue_buffer_release(_ handle: UnsafeMutableRawPointer?) {
-    guard let handle else {
-        return
-    }
-    releaseObject(handle, as: AudioQueueBufferBox.self)
 }
 
 @_cdecl("at_audio_queue_start")
