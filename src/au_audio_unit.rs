@@ -110,7 +110,10 @@ impl AUAudioUnit {
     pub fn allocate_render_resources(&self) -> Result<()> {
         let mut error = std::ptr::null_mut();
         if unsafe {
-            ffi::au_audio_unit::at_au_audio_unit_allocate_render_resources(self.handle, &raw mut error)
+            ffi::au_audio_unit::at_au_audio_unit_allocate_render_resources(
+                self.handle,
+                &raw mut error,
+            )
         } {
             Ok(())
         } else {

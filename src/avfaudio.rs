@@ -83,7 +83,8 @@ impl AVAudioEngine {
     /// Wraps `AVAudioEngineOutputNode`.
     pub fn output_node(&self) -> Result<AVAudioNode> {
         let mut handle = std::ptr::null_mut();
-        let ok = unsafe { ffi::avfaudio::at_av_audio_engine_output_node(self.handle, &raw mut handle) };
+        let ok =
+            unsafe { ffi::avfaudio::at_av_audio_engine_output_node(self.handle, &raw mut handle) };
         if ok {
             AVAudioNode::from_handle(handle, "AVAudioEngineOutputNode")
         } else {
@@ -97,8 +98,9 @@ impl AVAudioEngine {
     /// Wraps `AVAudioEngineMainMixerNode`.
     pub fn main_mixer_node(&self) -> Result<AVAudioNode> {
         let mut handle = std::ptr::null_mut();
-        let ok =
-            unsafe { ffi::avfaudio::at_av_audio_engine_main_mixer_node(self.handle, &raw mut handle) };
+        let ok = unsafe {
+            ffi::avfaudio::at_av_audio_engine_main_mixer_node(self.handle, &raw mut handle)
+        };
         if ok {
             AVAudioNode::from_handle(handle, "AVAudioEngineMainMixerNode")
         } else {
@@ -142,8 +144,9 @@ impl AVAudioNode {
     /// Wraps `AVAudioNodeInputFormatForBus`.
     pub fn input_format(&self, bus: AVAudioNodeBus) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
-        let ok =
-            unsafe { ffi::avfaudio::at_av_audio_node_input_format(self.handle, bus, &raw mut handle) };
+        let ok = unsafe {
+            ffi::avfaudio::at_av_audio_node_input_format(self.handle, bus, &raw mut handle)
+        };
         if ok {
             AVAudioFormat::from_handle(handle, "AVAudioNodeInputFormatForBus")
         } else {
@@ -157,8 +160,9 @@ impl AVAudioNode {
     /// Wraps `AVAudioNodeOutputFormatForBus`.
     pub fn output_format(&self, bus: AVAudioNodeBus) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
-        let ok =
-            unsafe { ffi::avfaudio::at_av_audio_node_output_format(self.handle, bus, &raw mut handle) };
+        let ok = unsafe {
+            ffi::avfaudio::at_av_audio_node_output_format(self.handle, bus, &raw mut handle)
+        };
         if ok {
             AVAudioFormat::from_handle(handle, "AVAudioNodeOutputFormatForBus")
         } else {
@@ -336,7 +340,11 @@ impl AVAudioPCMBuffer {
     pub fn new(format: &AVAudioFormat, frame_capacity: AVAudioFrameCount) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let ok = unsafe {
-            ffi::avfaudio::at_av_audio_pcm_buffer_new(format.handle, frame_capacity, &raw mut handle)
+            ffi::avfaudio::at_av_audio_pcm_buffer_new(
+                format.handle,
+                frame_capacity,
+                &raw mut handle,
+            )
         };
         if ok {
             Self::from_handle(handle, "AVAudioPCMBufferInit")
@@ -351,7 +359,8 @@ impl AVAudioPCMBuffer {
     /// Wraps `AVAudioPCMBufferFormat`.
     pub fn format(&self) -> Result<AVAudioFormat> {
         let mut handle = std::ptr::null_mut();
-        let ok = unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_format(self.handle, &raw mut handle) };
+        let ok =
+            unsafe { ffi::avfaudio::at_av_audio_pcm_buffer_format(self.handle, &raw mut handle) };
         if ok {
             AVAudioFormat::from_handle(handle, "AVAudioPCMBufferFormat")
         } else {

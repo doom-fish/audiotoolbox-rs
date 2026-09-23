@@ -89,7 +89,8 @@ impl AUGraph {
     /// Wraps `AUGraphIsRunning`.
     pub fn is_running(&self) -> Result<bool> {
         let mut is_running = 0_u8;
-        let status = unsafe { ffi::au_graph::at_au_graph_is_running(self.raw, &raw mut is_running) };
+        let status =
+            unsafe { ffi::au_graph::at_au_graph_is_running(self.raw, &raw mut is_running) };
         status_to_result("AUGraphIsRunning", status)?;
         Ok(is_running != 0)
     }
@@ -97,7 +98,8 @@ impl AUGraph {
     /// Wraps `AUGraphGetCPULoad`.
     pub fn cpu_load(&self) -> Result<f32> {
         let mut cpu_load = 0.0_f32;
-        let status = unsafe { ffi::au_graph::at_au_graph_get_cpu_load(self.raw, &raw mut cpu_load) };
+        let status =
+            unsafe { ffi::au_graph::at_au_graph_get_cpu_load(self.raw, &raw mut cpu_load) };
         status_to_result("AUGraphGetCPULoad", status)?;
         Ok(cpu_load)
     }
@@ -204,7 +206,10 @@ impl AUGraph {
     pub fn interaction_count(&self) -> Result<u32> {
         let mut interaction_count = 0_u32;
         let status = unsafe {
-            ffi::au_graph::at_au_graph_get_number_of_interactions(self.raw, &raw mut interaction_count)
+            ffi::au_graph::at_au_graph_get_number_of_interactions(
+                self.raw,
+                &raw mut interaction_count,
+            )
         };
         status_to_result("AUGraphGetNumberOfInteractions", status)?;
         Ok(interaction_count)
@@ -302,8 +307,9 @@ impl AUGraph {
     /// Wraps `AUGraphNodeInfo`.
     pub fn node_description(&self, node: AUNode) -> Result<AudioComponentDescription> {
         let mut description = AudioComponentDescription::wildcard();
-        let status =
-            unsafe { ffi::au_graph::at_au_graph_node_info(self.handle, node, &raw mut description) };
+        let status = unsafe {
+            ffi::au_graph::at_au_graph_node_info(self.handle, node, &raw mut description)
+        };
         status_to_result("AUGraphNodeInfo", status)?;
         Ok(description)
     }

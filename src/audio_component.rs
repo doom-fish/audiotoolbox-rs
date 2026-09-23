@@ -64,7 +64,10 @@ impl AudioComponent {
     pub fn copy_name(&self) -> Result<String> {
         let mut status = 0;
         let ptr = unsafe {
-            ffi::audio_component::at_audio_component_copy_name(self.as_raw().cast(), &raw mut status)
+            ffi::audio_component::at_audio_component_copy_name(
+                self.as_raw().cast(),
+                &raw mut status,
+            )
         };
         status_to_result("AudioComponentCopyName", status)?;
         string_from_owned_ptr("AudioComponentCopyName", ptr)
@@ -87,7 +90,10 @@ impl AudioComponent {
     pub fn version(&self) -> Result<u32> {
         let mut version = 0_u32;
         let status = unsafe {
-            ffi::audio_component::at_audio_component_get_version(self.as_raw().cast(), &raw mut version)
+            ffi::audio_component::at_audio_component_get_version(
+                self.as_raw().cast(),
+                &raw mut version,
+            )
         };
         status_to_result("AudioComponentGetVersion", status)?;
         Ok(version)
@@ -129,7 +135,10 @@ impl AudioComponent {
     pub fn new_instance(&self) -> Result<AudioComponentInstance> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::audio_component::at_audio_component_instance_new(self.as_raw().cast(), &raw mut handle)
+            ffi::audio_component::at_audio_component_instance_new(
+                self.as_raw().cast(),
+                &raw mut handle,
+            )
         };
         status_to_result("AudioComponentInstanceNew", status)?;
         let raw: AudioComponentInstanceRef =

@@ -681,7 +681,8 @@ impl MusicPlayer {
     /// Wraps `MusicPlayerGetTime`.
     pub fn time(&self) -> Result<MusicTimeStamp> {
         let mut time = 0.0_f64;
-        let status = unsafe { ffi::music::at_music_player_get_time(self.raw.cast(), &raw mut time) };
+        let status =
+            unsafe { ffi::music::at_music_player_get_time(self.raw.cast(), &raw mut time) };
         status_to_result("MusicPlayerGetTime", status)?;
         Ok(time)
     }
@@ -786,7 +787,8 @@ impl MusicEventIterator {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(track: MusicTrack) -> Result<Self> {
         let mut raw = std::ptr::null_mut();
-        let status = unsafe { ffi::music::at_music_event_iterator_new(track.raw.cast(), &raw mut raw) };
+        let status =
+            unsafe { ffi::music::at_music_event_iterator_new(track.raw.cast(), &raw mut raw) };
         status_to_result("NewMusicEventIterator", status)?;
         if raw.is_null() {
             return Err(AudioToolboxError::message(
@@ -882,8 +884,9 @@ impl MusicEventIterator {
     /// Wraps `MusicEventIteratorHasNextEvent`.
     pub fn has_next_event(&self) -> Result<bool> {
         let mut has_event = 0_u8;
-        let status =
-            unsafe { ffi::music::at_music_event_iterator_has_next_event(self.raw, &raw mut has_event) };
+        let status = unsafe {
+            ffi::music::at_music_event_iterator_has_next_event(self.raw, &raw mut has_event)
+        };
         status_to_result("MusicEventIteratorHasNextEvent", status)?;
         Ok(has_event != 0)
     }
