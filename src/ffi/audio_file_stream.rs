@@ -1,4 +1,7 @@
-use crate::{AudioFileStreamParseFlags, AudioFileStreamPropertyId, Boolean, OSStatus};
+use crate::{
+    AudioFileStreamParseFlags, AudioFileStreamPropertyId, AudioFileStreamSeekFlags,
+    AudioStreamPacketDescription, Boolean, OSStatus,
+};
 use std::ffi::c_void;
 
 unsafe extern "C" {
@@ -66,4 +69,24 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioFileStreamPacketCountSeen`.
     pub fn at_audio_file_stream_packet_count_seen(handle: *mut c_void) -> u64;
+    pub fn at_audio_file_stream_pending_sizes(
+        handle: *mut c_void,
+        out_byte_count: *mut u64,
+        out_description_count: *mut u64,
+        out_packet_count: *mut u64,
+    );
+    pub fn at_audio_file_stream_take_pending(
+        handle: *mut c_void,
+        data: *mut c_void,
+        data_capacity: u64,
+        descriptions: *mut AudioStreamPacketDescription,
+        description_capacity: u64,
+    ) -> bool;
+    #[link_name = "AudioFileStreamSeek"]
+    pub fn at_audio_file_stream_seek(
+        raw_stream: *mut c_void,
+        packet_offset: i64,
+        out_data_byte_offset: *mut i64,
+        io_flags: *mut AudioFileStreamSeekFlags,
+    ) -> OSStatus;
 }

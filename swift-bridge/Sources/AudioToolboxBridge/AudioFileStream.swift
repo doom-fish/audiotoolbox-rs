@@ -9,6 +9,9 @@ private final class AudioFileStreamBox {
     var value: AudioFileStreamID?
     var readyToProducePackets = false
     var packetCountSeen: UInt64 = 0
+    var pendingData: [UInt8] = []
+    var pendingDescriptions: [AudioStreamPacketDescription] = []
+    var pendingPackets: UInt64 = 0
 
     deinit {
         if let value {
@@ -46,11 +49,21 @@ private func packetsProc(
     _ inInputData: UnsafeRawPointer,
     _ inPacketDescriptions: UnsafeMutablePointer<AudioStreamPacketDescription>?
 ) {
-    _ = inNumberBytes
-    _ = inInputData
-    _ = inPacketDescriptions
     let box = fileStreamBox(from: inClientData)
-    box.packetCountSeen += UInt64(inNumberPackets)
+    box.packetCountSeen &+= UInt64(inNumberPackets)
+    box.pendingPackets &+= UInt64(inNumberPackets)
+    let base = Int64(box.pendingData.count)
+    box.pendingData.append(
+        contentsOf: UnsafeRawBufferPointer(start: inInputData, count: Int(inNumberBytes))
+    )
+    guard let inPacketDescriptions else {
+        return
+    }
+    for index in 0 ..< Int(inNumberPackets) {
+        var description = inPacketDescriptions[index]
+        description.mStartOffset += base
+        box.pendingDescriptions.append(description)
+    }
 }
 
 @_cdecl("at_audio_file_stream_open")
@@ -148,4 +161,57 @@ public func at_audio_file_stream_packet_count_seen(_ handle: UnsafeMutableRawPoi
         return 0
     }
     return fileStreamBox(from: handle).packetCountSeen
+}
+
+@_cdecl("at_audio_file_stream_pending_sizes")
+public func at_audio_file_stream_pending_sizes(
+    _ handle: UnsafeMutableRawPointer?,
+    _ outByteCount: UnsafeMutablePointer<UInt64>?,
+    _ outDescriptionCount: UnsafeMutablePointer<UInt64>?,
+    _ outPacketCount: UnsafeMutablePointer<UInt64>?
+) {
+    guard let handle else {
+        return
+    }
+    let box = fileStreamBox(from: handle)
+    outByteCount?.pointee = UInt64(box.pendingData.count)
+    outDescriptionCount?.pointee = UInt64(box.pendingDescriptions.count)
+    outPacketCount?.pointee = box.pendingPackets
+}
+
+@_cdecl("at_audio_file_stream_take_pending")
+public func at_audio_file_stream_take_pending(
+    _ handle: UnsafeMutableRawPointer?,
+    _ data: UnsafeMutableRawPointer?,
+    _ dataCapacity: UInt64,
+    _ descriptions: UnsafeMutablePointer<AudioStreamPacketDescription>?,
+    _ descriptionCapacity: UInt64
+) -> Bool {
+    guard let handle else {
+        return false
+    }
+    let box = fileStreamBox(from: handle)
+    guard UInt64(box.pendingData.count) <= dataCapacity,
+          UInt64(box.pendingDescriptions.count) <= descriptionCapacity
+    else {
+        return false
+    }
+    if let data, !box.pendingData.isEmpty {
+        box.pendingData.withUnsafeBytes { bytes in
+            if let base = bytes.baseAddress {
+                data.copyMemory(from: base, byteCount: bytes.count)
+            }
+        }
+    }
+    if let descriptions, !box.pendingDescriptions.isEmpty {
+        box.pendingDescriptions.withUnsafeBufferPointer { source in
+            if let base = source.baseAddress {
+                descriptions.update(from: base, count: source.count)
+            }
+        }
+    }
+    box.pendingData.removeAll(keepingCapacity: true)
+    box.pendingDescriptions.removeAll(keepingCapacity: true)
+    box.pendingPackets = 0
+    return true
 }

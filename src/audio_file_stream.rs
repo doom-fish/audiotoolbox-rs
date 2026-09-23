@@ -3,11 +3,12 @@ use crate::{
     internal::status_to_result,
     property::{read_property, AudioProperty},
     AudioFileStreamId, AudioFileStreamParseFlags, AudioFileStreamPropertyId,
-    AudioStreamBasicDescription, AudioToolboxError, Result,
-    AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_BYTE_COUNT,
+    AudioStreamBasicDescription, AudioStreamPacketDescription, AudioToolboxError, PacketData,
+    Result, AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_BYTE_COUNT,
     AUDIO_FILE_STREAM_PROPERTY_AUDIO_DATA_PACKET_COUNT, AUDIO_FILE_STREAM_PROPERTY_BIT_RATE,
     AUDIO_FILE_STREAM_PROPERTY_DATA_FORMAT, AUDIO_FILE_STREAM_PROPERTY_FILE_FORMAT,
     AUDIO_FILE_STREAM_PROPERTY_MAGIC_COOKIE_DATA, AUDIO_FILE_STREAM_PROPERTY_MAXIMUM_PACKET_SIZE,
+    AUDIO_FILE_STREAM_SEEK_FLAG_OFFSET_IS_ESTIMATED,
 };
 
 #[derive(Debug)]
@@ -44,7 +45,11 @@ impl AudioFileStream {
     }
 
     /// Wraps `AudioFileStreamParseBytes`.
-    pub fn parse_bytes(&self, data: &[u8], parse_flags: AudioFileStreamParseFlags) -> Result<()> {
+    pub fn parse_bytes(
+        &self,
+        data: &[u8],
+        parse_flags: AudioFileStreamParseFlags,
+    ) -> Result<PacketData> {
         let data_len = u32::try_from(data.len()).map_err(|_| {
             AudioToolboxError::message(
                 "AudioFileStreamParseBytes",
@@ -59,7 +64,74 @@ impl AudioFileStream {
                 parse_flags,
             )
         };
-        status_to_result("AudioFileStreamParseBytes", status)
+        let packets = self.take_packets();
+        status_to_result("AudioFileStreamParseBytes", status)?;
+        packets
+    }
+
+    fn take_packets(&self) -> Result<PacketData> {
+        let operation = "AudioFileStreamParseBytes(packets)";
+        let (mut byte_count, mut description_count, mut packet_count) = (0_u64, 0_u64, 0_u64);
+        unsafe {
+            ffi::audio_file_stream::at_audio_file_stream_pending_sizes(
+                self.handle,
+                &raw mut byte_count,
+                &raw mut description_count,
+                &raw mut packet_count,
+            );
+        }
+        let too_large =
+            || AudioToolboxError::message(operation, "parsed packets exceed the address space");
+        let mut data = vec![0_u8; usize::try_from(byte_count).map_err(|_| too_large())?];
+        let mut packet_descriptions = vec![
+            AudioStreamPacketDescription::default();
+            usize::try_from(description_count)
+                .map_err(|_| too_large())?
+        ];
+        let taken = unsafe {
+            ffi::audio_file_stream::at_audio_file_stream_take_pending(
+                self.handle,
+                data.as_mut_ptr().cast(),
+                byte_count,
+                packet_descriptions.as_mut_ptr(),
+                description_count,
+            )
+        };
+        if !taken {
+            return Err(AudioToolboxError::message(
+                operation,
+                "the parsed packet buffer changed while it was copied",
+            ));
+        }
+        Ok(PacketData {
+            data,
+            packet_count: u32::try_from(packet_count).map_err(|_| {
+                AudioToolboxError::message(
+                    operation,
+                    "one parse produced more than UInt32::MAX packets",
+                )
+            })?,
+            packet_descriptions,
+        })
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn seek(&self, packet_offset: i64) -> Result<(i64, bool)> {
+        let mut byte_offset = 0_i64;
+        let mut flags = 0_u32;
+        let status = unsafe {
+            ffi::audio_file_stream::at_audio_file_stream_seek(
+                self.raw.cast(),
+                packet_offset,
+                &raw mut byte_offset,
+                &raw mut flags,
+            )
+        };
+        status_to_result("AudioFileStreamSeek", status)?;
+        Ok((
+            byte_offset,
+            flags & AUDIO_FILE_STREAM_SEEK_FLAG_OFFSET_IS_ESTIMATED != 0,
+        ))
     }
 
     /// Wraps `AudioFileStreamReadyToProducePackets`.
