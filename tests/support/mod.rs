@@ -60,7 +60,7 @@ pub fn ramp_converter_unit() -> Result<(AudioUnit, AudioStreamBasicDescription)>
     Ok((unit, output))
 }
 
-pub fn sample_time_stamp(sample_time: f64) -> AudioTimeStamp {
+pub const fn sample_time_stamp(sample_time: f64) -> AudioTimeStamp {
     AudioTimeStamp {
         mSampleTime: sample_time,
         mHostTime: 0,
