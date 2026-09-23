@@ -93,11 +93,11 @@ impl InterleavedAudioBuffer {
     fn raw_mut_ptr(&mut self) -> *mut crate::AudioBufferList1 {
         self.raw.mBuffers[0].mData = self.storage.as_mut_ptr().cast();
         self.raw.mBuffers[0].mDataByteSize = self.storage.len() as u32;
-        &mut self.raw
+        &raw mut self.raw
     }
 
     fn raw_ptr(&self) -> *const crate::AudioBufferList1 {
-        &self.raw
+        &raw const self.raw
     }
 }
 
@@ -116,7 +116,7 @@ impl ExtAudioFile {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
         let status =
-            unsafe { ffi::ext_audio_file::at_ext_audio_file_open(path.as_ptr(), &mut handle) };
+            unsafe { ffi::ext_audio_file::at_ext_audio_file_open(path.as_ptr(), &raw mut handle) };
         status_to_result("ExtAudioFileOpenURL", status)?;
         let raw: ExtAudioFileRef =
             unsafe { ffi::ext_audio_file::at_ext_audio_file_raw(handle) }.cast();
@@ -146,7 +146,7 @@ impl ExtAudioFile {
                 file_type,
                 format,
                 flags,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("ExtAudioFileCreateWithURL", status)?;
@@ -222,7 +222,7 @@ impl ExtAudioFile {
         let status = unsafe {
             ffi::ext_audio_file::at_ext_audio_file_copy_audio_converter(
                 self.raw.cast(),
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("ExtAudioFileGetProperty(audio converter)", status)?;
@@ -242,7 +242,7 @@ impl ExtAudioFile {
         let mut io_number_frames = frames.min(buffer.frame_capacity());
         let raw = buffer.raw_mut_ptr();
         let status = unsafe {
-            ffi::ext_audio_file::at_ext_audio_file_read(self.raw.cast(), &mut io_number_frames, raw)
+            ffi::ext_audio_file::at_ext_audio_file_read(self.raw.cast(), &raw mut io_number_frames, raw)
         };
         status_to_result("ExtAudioFileRead", status)?;
         Ok(io_number_frames)
@@ -267,7 +267,7 @@ impl ExtAudioFile {
             ffi::ext_audio_file::at_ext_audio_file_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };

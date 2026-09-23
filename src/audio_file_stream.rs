@@ -22,7 +22,7 @@ impl AudioFileStream {
     pub fn open(file_type_hint: u32) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status = unsafe {
-            ffi::audio_file_stream::at_audio_file_stream_open(file_type_hint, &mut handle)
+            ffi::audio_file_stream::at_audio_file_stream_open(file_type_hint, &raw mut handle)
         };
         status_to_result("AudioFileStreamOpen", status)?;
         let raw: AudioFileStreamId =
@@ -136,8 +136,8 @@ impl AudioFileStream {
             ffi::audio_file_stream::at_audio_file_stream_get_property_info(
                 self.raw.cast(),
                 property_id,
-                &mut data_size,
-                &mut writable,
+                &raw mut data_size,
+                &raw mut writable,
             )
         };
         status_to_result("AudioFileStreamGetPropertyInfo", status)?;
@@ -161,7 +161,7 @@ impl AudioFileStream {
             ffi::audio_file_stream::at_audio_file_stream_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };
@@ -184,7 +184,7 @@ impl AudioFileStream {
             ffi::audio_file_stream::at_audio_file_stream_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 bytes.as_mut_ptr().cast(),
             )
         };

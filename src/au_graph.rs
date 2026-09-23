@@ -15,7 +15,7 @@ impl AUGraph {
     /// Wraps `NewAUGraph`.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::au_graph::at_au_graph_new(&mut handle) };
+        let status = unsafe { ffi::au_graph::at_au_graph_new(&raw mut handle) };
         status_to_result("NewAUGraph", status)?;
         Self::from_handle(handle, "NewAUGraph")
     }
@@ -64,7 +64,7 @@ impl AUGraph {
     /// Wraps `AUGraphUpdate`.
     pub fn update(&self) -> Result<bool> {
         let mut is_updated = 0_u8;
-        let status = unsafe { ffi::au_graph::at_au_graph_update(self.raw, &mut is_updated) };
+        let status = unsafe { ffi::au_graph::at_au_graph_update(self.raw, &raw mut is_updated) };
         status_to_result("AUGraphUpdate", status)?;
         Ok(is_updated != 0)
     }
@@ -72,7 +72,7 @@ impl AUGraph {
     /// Wraps `AUGraphIsOpen`.
     pub fn is_open(&self) -> Result<bool> {
         let mut is_open = 0_u8;
-        let status = unsafe { ffi::au_graph::at_au_graph_is_open(self.raw, &mut is_open) };
+        let status = unsafe { ffi::au_graph::at_au_graph_is_open(self.raw, &raw mut is_open) };
         status_to_result("AUGraphIsOpen", status)?;
         Ok(is_open != 0)
     }
@@ -81,7 +81,7 @@ impl AUGraph {
     pub fn is_initialized(&self) -> Result<bool> {
         let mut is_initialized = 0_u8;
         let status =
-            unsafe { ffi::au_graph::at_au_graph_is_initialized(self.raw, &mut is_initialized) };
+            unsafe { ffi::au_graph::at_au_graph_is_initialized(self.raw, &raw mut is_initialized) };
         status_to_result("AUGraphIsInitialized", status)?;
         Ok(is_initialized != 0)
     }
@@ -89,7 +89,7 @@ impl AUGraph {
     /// Wraps `AUGraphIsRunning`.
     pub fn is_running(&self) -> Result<bool> {
         let mut is_running = 0_u8;
-        let status = unsafe { ffi::au_graph::at_au_graph_is_running(self.raw, &mut is_running) };
+        let status = unsafe { ffi::au_graph::at_au_graph_is_running(self.raw, &raw mut is_running) };
         status_to_result("AUGraphIsRunning", status)?;
         Ok(is_running != 0)
     }
@@ -97,7 +97,7 @@ impl AUGraph {
     /// Wraps `AUGraphGetCPULoad`.
     pub fn cpu_load(&self) -> Result<f32> {
         let mut cpu_load = 0.0_f32;
-        let status = unsafe { ffi::au_graph::at_au_graph_get_cpu_load(self.raw, &mut cpu_load) };
+        let status = unsafe { ffi::au_graph::at_au_graph_get_cpu_load(self.raw, &raw mut cpu_load) };
         status_to_result("AUGraphGetCPULoad", status)?;
         Ok(cpu_load)
     }
@@ -106,7 +106,7 @@ impl AUGraph {
     pub fn max_cpu_load(&self) -> Result<f32> {
         let mut cpu_load = 0.0_f32;
         let status =
-            unsafe { ffi::au_graph::at_au_graph_get_max_cpu_load(self.raw, &mut cpu_load) };
+            unsafe { ffi::au_graph::at_au_graph_get_max_cpu_load(self.raw, &raw mut cpu_load) };
         status_to_result("AUGraphGetMaxCPULoad", status)?;
         Ok(cpu_load)
     }
@@ -120,7 +120,7 @@ impl AUGraph {
     pub fn node_count(&self) -> Result<u32> {
         let mut node_count = 0_u32;
         let status =
-            unsafe { ffi::au_graph::at_au_graph_get_node_count(self.handle, &mut node_count) };
+            unsafe { ffi::au_graph::at_au_graph_get_node_count(self.handle, &raw mut node_count) };
         status_to_result("AUGraphGetNodeCount", status)?;
         Ok(node_count)
     }
@@ -132,7 +132,7 @@ impl AUGraph {
             ffi::au_graph::at_au_graph_add_node(
                 self.handle,
                 std::ptr::from_ref(&description),
-                &mut node,
+                &raw mut node,
             )
         };
         status_to_result("AUGraphAddNode", status)?;
@@ -195,7 +195,7 @@ impl AUGraph {
     pub fn interaction_count(&self) -> Result<u32> {
         let mut interaction_count = 0_u32;
         let status = unsafe {
-            ffi::au_graph::at_au_graph_get_number_of_interactions(self.raw, &mut interaction_count)
+            ffi::au_graph::at_au_graph_get_number_of_interactions(self.raw, &raw mut interaction_count)
         };
         status_to_result("AUGraphGetNumberOfInteractions", status)?;
         Ok(interaction_count)
@@ -222,7 +222,7 @@ impl AUGraph {
             ffi::au_graph::at_au_graph_count_node_interactions(
                 self.raw,
                 node,
-                &mut interaction_count,
+                &raw mut interaction_count,
             )
         };
         status_to_result("AUGraphCountNodeInteractions", status)?;
@@ -238,7 +238,7 @@ impl AUGraph {
             ffi::au_graph::at_au_graph_get_node_interactions(
                 self.raw,
                 node,
-                &mut interaction_count,
+                &raw mut interaction_count,
                 interactions.as_mut_ptr().cast(),
             )
         };
@@ -294,7 +294,7 @@ impl AUGraph {
     pub fn node_description(&self, node: AUNode) -> Result<AudioComponentDescription> {
         let mut description = AudioComponentDescription::wildcard();
         let status =
-            unsafe { ffi::au_graph::at_au_graph_node_info(self.handle, node, &mut description) };
+            unsafe { ffi::au_graph::at_au_graph_node_info(self.handle, node, &raw mut description) };
         status_to_result("AUGraphNodeInfo", status)?;
         Ok(description)
     }

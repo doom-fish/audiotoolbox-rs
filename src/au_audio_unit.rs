@@ -27,8 +27,8 @@ impl AUAudioUnit {
             ffi::au_audio_unit::at_au_audio_unit_new(
                 std::ptr::from_ref(&description),
                 options,
-                &mut handle,
-                &mut error,
+                &raw mut handle,
+                &raw mut error,
             )
         };
         if ok {
@@ -110,7 +110,7 @@ impl AUAudioUnit {
     pub fn allocate_render_resources(&self) -> Result<()> {
         let mut error = std::ptr::null_mut();
         if unsafe {
-            ffi::au_audio_unit::at_au_audio_unit_allocate_render_resources(self.handle, &mut error)
+            ffi::au_audio_unit::at_au_audio_unit_allocate_render_resources(self.handle, &raw mut error)
         } {
             Ok(())
         } else {

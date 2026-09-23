@@ -55,7 +55,7 @@ impl MusicSequence {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::music::at_music_sequence_new(&mut handle) };
+        let status = unsafe { ffi::music::at_music_sequence_new(&raw mut handle) };
         status_to_result("NewMusicSequence", status)?;
         let raw: MusicSequenceRef = unsafe { ffi::music::at_music_sequence_raw(handle) }.cast();
         if raw.is_null() {
@@ -76,7 +76,7 @@ impl MusicSequence {
     pub fn new_track(&self) -> Result<MusicTrack> {
         let mut handle = std::ptr::null_mut();
         let status =
-            unsafe { ffi::music::at_music_sequence_new_track(self.raw.cast(), &mut handle) };
+            unsafe { ffi::music::at_music_sequence_new_track(self.raw.cast(), &raw mut handle) };
         status_to_result("MusicSequenceNewTrack", status)?;
         let raw: MusicTrackRef = unsafe { ffi::music::at_music_track_raw(handle) }.cast();
         unsafe { ffi::music::at_music_track_release(handle) };
@@ -101,7 +101,7 @@ impl MusicSequence {
     pub fn track_count(&self) -> Result<u32> {
         let mut track_count = 0_u32;
         let status = unsafe {
-            ffi::music::at_music_sequence_get_track_count(self.raw.cast(), &mut track_count)
+            ffi::music::at_music_sequence_get_track_count(self.raw.cast(), &raw mut track_count)
         };
         status_to_result("MusicSequenceGetTrackCount", status)?;
         Ok(track_count)
@@ -135,7 +135,7 @@ impl MusicSequence {
             ffi::music::at_music_sequence_get_track_index(
                 self.raw.cast(),
                 track.raw.cast(),
-                &mut track_index,
+                &raw mut track_index,
             )
         };
         status_to_result("MusicSequenceGetTrackIndex", status)?;
@@ -170,7 +170,7 @@ impl MusicSequence {
     pub fn au_graph_raw(&self) -> Result<*mut c_void> {
         let mut graph = std::ptr::null_mut();
         let status =
-            unsafe { ffi::music::at_music_sequence_get_au_graph(self.raw.cast(), &mut graph) };
+            unsafe { ffi::music::at_music_sequence_get_au_graph(self.raw.cast(), &raw mut graph) };
         status_to_result("MusicSequenceGetAUGraph", status)?;
         Ok(graph)
     }
@@ -194,7 +194,7 @@ impl MusicSequence {
     pub fn sequence_type(&self) -> Result<MusicSequenceType> {
         let mut sequence_type = 0_u32;
         let status = unsafe {
-            ffi::music::at_music_sequence_get_sequence_type(self.raw.cast(), &mut sequence_type)
+            ffi::music::at_music_sequence_get_sequence_type(self.raw.cast(), &raw mut sequence_type)
         };
         status_to_result("MusicSequenceGetSequenceType", status)?;
         Ok(sequence_type)
@@ -271,7 +271,7 @@ impl MusicSequence {
                 file_type,
                 flags,
                 resolution,
-                &mut data,
+                &raw mut data,
             )
         };
         status_to_result("MusicSequenceFileCreateData", status)?;
@@ -285,7 +285,7 @@ impl MusicSequence {
             ffi::music::at_music_sequence_get_seconds_for_beats(
                 self.raw.cast(),
                 beats,
-                &mut seconds,
+                &raw mut seconds,
             )
         };
         status_to_result("MusicSequenceGetSecondsForBeats", status)?;
@@ -299,7 +299,7 @@ impl MusicSequence {
             ffi::music::at_music_sequence_get_beats_for_seconds(
                 self.raw.cast(),
                 seconds,
-                &mut beats,
+                &raw mut beats,
             )
         };
         status_to_result("MusicSequenceGetBeatsForSeconds", status)?;
@@ -332,7 +332,7 @@ impl MusicSequence {
             ffi::music::at_music_sequence_bar_beat_time_to_beats(
                 self.raw.cast(),
                 bar_beat_time,
-                &mut beats,
+                &raw mut beats,
             )
         };
         status_to_result("MusicSequenceBarBeatTimeToBeats", status)?;
@@ -375,7 +375,7 @@ impl MusicTrack {
     pub fn sequence_raw(&self) -> Result<MusicSequenceRef> {
         let mut sequence = std::ptr::null_mut();
         let status =
-            unsafe { ffi::music::at_music_track_get_sequence(self.raw.cast(), &mut sequence) };
+            unsafe { ffi::music::at_music_track_get_sequence(self.raw.cast(), &raw mut sequence) };
         status_to_result("MusicTrackGetSequence", status)?;
         Ok(sequence)
     }
@@ -397,7 +397,7 @@ impl MusicTrack {
     pub fn dest_node(&self) -> Result<AUNode> {
         let mut node = 0_i32;
         let status =
-            unsafe { ffi::music::at_music_track_get_dest_node(self.raw.cast(), &mut node) };
+            unsafe { ffi::music::at_music_track_get_dest_node(self.raw.cast(), &raw mut node) };
         status_to_result("MusicTrackGetDestNode", status)?;
         Ok(node)
     }
@@ -406,7 +406,7 @@ impl MusicTrack {
     pub fn dest_midi_endpoint(&self) -> Result<MIDIEndpointRef> {
         let mut endpoint = 0_u32;
         let status = unsafe {
-            ffi::music::at_music_track_get_dest_midi_endpoint(self.raw.cast(), &mut endpoint)
+            ffi::music::at_music_track_get_dest_midi_endpoint(self.raw.cast(), &raw mut endpoint)
         };
         status_to_result("MusicTrackGetDestMIDIEndpoint", status)?;
         Ok(endpoint)
@@ -422,7 +422,7 @@ impl MusicTrack {
                 self.raw.cast(),
                 property_id,
                 value.as_mut_ptr().cast(),
-                &mut length,
+                &raw mut length,
             )
         };
         status_to_result("MusicTrackGetProperty", status)?;
@@ -638,7 +638,7 @@ impl MusicPlayer {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::music::at_music_player_new(&mut handle) };
+        let status = unsafe { ffi::music::at_music_player_new(&raw mut handle) };
         status_to_result("NewMusicPlayer", status)?;
         let raw: MusicPlayerRef = unsafe { ffi::music::at_music_player_raw(handle) }.cast();
         if raw.is_null() {
@@ -667,7 +667,7 @@ impl MusicPlayer {
     pub fn sequence_raw(&self) -> Result<MusicSequenceRef> {
         let mut sequence = std::ptr::null_mut();
         let status =
-            unsafe { ffi::music::at_music_player_get_sequence(self.raw.cast(), &mut sequence) };
+            unsafe { ffi::music::at_music_player_get_sequence(self.raw.cast(), &raw mut sequence) };
         status_to_result("MusicPlayerGetSequence", status)?;
         Ok(sequence)
     }
@@ -681,7 +681,7 @@ impl MusicPlayer {
     /// Wraps `MusicPlayerGetTime`.
     pub fn time(&self) -> Result<MusicTimeStamp> {
         let mut time = 0.0_f64;
-        let status = unsafe { ffi::music::at_music_player_get_time(self.raw.cast(), &mut time) };
+        let status = unsafe { ffi::music::at_music_player_get_time(self.raw.cast(), &raw mut time) };
         status_to_result("MusicPlayerGetTime", status)?;
         Ok(time)
     }
@@ -693,7 +693,7 @@ impl MusicPlayer {
             ffi::music::at_music_player_get_host_time_for_beats(
                 self.raw.cast(),
                 beats,
-                &mut host_time,
+                &raw mut host_time,
             )
         };
         status_to_result("MusicPlayerGetHostTimeForBeats", status)?;
@@ -707,7 +707,7 @@ impl MusicPlayer {
             ffi::music::at_music_player_get_beats_for_host_time(
                 self.raw.cast(),
                 host_time,
-                &mut beats,
+                &raw mut beats,
             )
         };
         status_to_result("MusicPlayerGetBeatsForHostTime", status)?;
@@ -736,7 +736,7 @@ impl MusicPlayer {
     pub fn is_playing(&self) -> Result<bool> {
         let mut is_playing = 0_u32;
         let status =
-            unsafe { ffi::music::at_music_player_is_playing(self.raw.cast(), &mut is_playing) };
+            unsafe { ffi::music::at_music_player_is_playing(self.raw.cast(), &raw mut is_playing) };
         status_to_result("MusicPlayerIsPlaying", status)?;
         Ok(is_playing != 0)
     }
@@ -753,7 +753,7 @@ impl MusicPlayer {
     pub fn play_rate_scalar(&self) -> Result<f64> {
         let mut scale_rate = 0.0_f64;
         let status = unsafe {
-            ffi::music::at_music_player_get_play_rate_scalar(self.raw.cast(), &mut scale_rate)
+            ffi::music::at_music_player_get_play_rate_scalar(self.raw.cast(), &raw mut scale_rate)
         };
         status_to_result("MusicPlayerGetPlayRateScalar", status)?;
         Ok(scale_rate)
@@ -786,7 +786,7 @@ impl MusicEventIterator {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new(track: MusicTrack) -> Result<Self> {
         let mut raw = std::ptr::null_mut();
-        let status = unsafe { ffi::music::at_music_event_iterator_new(track.raw.cast(), &mut raw) };
+        let status = unsafe { ffi::music::at_music_event_iterator_new(track.raw.cast(), &raw mut raw) };
         status_to_result("NewMusicEventIterator", status)?;
         if raw.is_null() {
             return Err(AudioToolboxError::message(
@@ -829,10 +829,10 @@ impl MusicEventIterator {
         let status = unsafe {
             ffi::music::at_music_event_iterator_get_event_info(
                 self.raw,
-                &mut time_stamp,
-                &mut event_type,
-                &mut event_data,
-                &mut event_data_size,
+                &raw mut time_stamp,
+                &raw mut event_type,
+                &raw mut event_data,
+                &raw mut event_data_size,
             )
         };
         status_to_result("MusicEventIteratorGetEventInfo", status)?;
@@ -873,7 +873,7 @@ impl MusicEventIterator {
     pub fn has_previous_event(&self) -> Result<bool> {
         let mut has_event = 0_u8;
         let status = unsafe {
-            ffi::music::at_music_event_iterator_has_previous_event(self.raw, &mut has_event)
+            ffi::music::at_music_event_iterator_has_previous_event(self.raw, &raw mut has_event)
         };
         status_to_result("MusicEventIteratorHasPreviousEvent", status)?;
         Ok(has_event != 0)
@@ -883,7 +883,7 @@ impl MusicEventIterator {
     pub fn has_next_event(&self) -> Result<bool> {
         let mut has_event = 0_u8;
         let status =
-            unsafe { ffi::music::at_music_event_iterator_has_next_event(self.raw, &mut has_event) };
+            unsafe { ffi::music::at_music_event_iterator_has_next_event(self.raw, &raw mut has_event) };
         status_to_result("MusicEventIteratorHasNextEvent", status)?;
         Ok(has_event != 0)
     }
@@ -892,7 +892,7 @@ impl MusicEventIterator {
     pub fn has_current_event(&self) -> Result<bool> {
         let mut has_event = 0_u8;
         let status = unsafe {
-            ffi::music::at_music_event_iterator_has_current_event(self.raw, &mut has_event)
+            ffi::music::at_music_event_iterator_has_current_event(self.raw, &raw mut has_event)
         };
         status_to_result("MusicEventIteratorHasCurrentEvent", status)?;
         Ok(has_event != 0)

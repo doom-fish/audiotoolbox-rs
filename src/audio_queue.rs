@@ -26,7 +26,7 @@ impl AudioQueue {
     /// The returned wrapper owns the underlying AudioToolbox.framework handle and releases it on drop.
     pub fn new_output(format: &AudioStreamBasicDescription) -> Result<Self> {
         let mut handle = std::ptr::null_mut();
-        let status = unsafe { ffi::audio_queue::at_audio_queue_new_output(format, &mut handle) };
+        let status = unsafe { ffi::audio_queue::at_audio_queue_new_output(format, &raw mut handle) };
         status_to_result("AudioQueueNewOutput", status)?;
         let raw: AudioQueueRef = unsafe { ffi::audio_queue::at_audio_queue_raw(handle) }.cast();
         if raw.is_null() {
@@ -69,7 +69,7 @@ impl AudioQueue {
             ffi::audio_queue::at_audio_queue_get_parameter(
                 self.raw.cast(),
                 parameter_id,
-                &mut value,
+                &raw mut value,
             )
         };
         status_to_result("AudioQueueGetParameter", status)?;
@@ -107,7 +107,7 @@ impl AudioQueue {
             ffi::audio_queue::at_audio_queue_allocate_buffer(
                 self.raw.cast(),
                 byte_size,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioQueueAllocateBuffer", status)?;
@@ -157,7 +157,7 @@ impl AudioQueue {
             ffi::audio_queue::at_audio_queue_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };

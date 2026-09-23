@@ -56,7 +56,7 @@ impl AudioFile {
                 path.as_ptr(),
                 permissions,
                 file_type_hint,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioFileOpenURL", status)?;
@@ -90,7 +90,7 @@ impl AudioFile {
                 file_type,
                 format,
                 flags,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioFileCreateWithURL", status)?;
@@ -125,8 +125,8 @@ impl AudioFile {
             ffi::audio_file::at_audio_file_get_property_info(
                 self.raw.cast(),
                 property_id,
-                &mut data_size,
-                &mut writable,
+                &raw mut data_size,
+                &raw mut writable,
             )
         };
         status_to_result("AudioFileGetPropertyInfo", status)?;
@@ -212,7 +212,7 @@ impl AudioFile {
                 self.raw,
                 u8::from(use_cache),
                 starting_byte,
-                &mut actual_byte_count,
+                &raw mut actual_byte_count,
                 bytes.as_mut_ptr().cast(),
             )
         };
@@ -234,7 +234,7 @@ impl AudioFile {
                 self.raw,
                 u8::from(use_cache),
                 starting_byte,
-                &mut actual_byte_count,
+                &raw mut actual_byte_count,
                 data.as_ptr().cast(),
             )
         };
@@ -246,7 +246,7 @@ impl AudioFile {
     pub fn count_user_data(&self, user_data_id: u32) -> Result<u32> {
         let mut count = 0_u32;
         let status = unsafe {
-            ffi::audio_file::at_audio_file_count_user_data(self.raw, user_data_id, &mut count)
+            ffi::audio_file::at_audio_file_count_user_data(self.raw, user_data_id, &raw mut count)
         };
         status_to_result("AudioFileCountUserData", status)?;
         Ok(count)
@@ -260,7 +260,7 @@ impl AudioFile {
                 self.raw,
                 user_data_id,
                 index,
-                &mut size,
+                &raw mut size,
             )
         };
         status_to_result("AudioFileGetUserDataSize", status)?;
@@ -275,7 +275,7 @@ impl AudioFile {
                 self.raw,
                 user_data_id,
                 index,
-                &mut size,
+                &raw mut size,
             )
         };
         status_to_result("AudioFileGetUserDataSize64", status)?;
@@ -291,7 +291,7 @@ impl AudioFile {
                 self.raw,
                 user_data_id,
                 index,
-                &mut size,
+                &raw mut size,
                 bytes.as_mut_ptr().cast(),
             )
         };
@@ -316,7 +316,7 @@ impl AudioFile {
                 user_data_id,
                 index,
                 offset,
-                &mut size,
+                &raw mut size,
                 bytes.as_mut_ptr().cast(),
             )
         };
@@ -371,7 +371,7 @@ impl AudioFile {
                 property_id,
                 specifier_size,
                 specifier_ptr,
-                &mut size,
+                &raw mut size,
             )
         };
         status_to_result("AudioFileGetGlobalInfoSize", status)?;
@@ -397,7 +397,7 @@ impl AudioFile {
                 property_id,
                 specifier_size,
                 specifier_ptr,
-                &mut size,
+                &raw mut size,
                 bytes.as_mut_ptr().cast(),
             )
         };
@@ -419,7 +419,7 @@ impl AudioFile {
             ffi::audio_file::at_audio_file_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 bytes.as_mut_ptr().cast(),
             )
         };
@@ -537,7 +537,7 @@ impl AudioFile {
                 in_num_bytes,
                 packet_description_ptr,
                 starting_packet,
-                &mut io_num_packets,
+                &raw mut io_num_packets,
                 data.as_ptr().cast(),
             )
         };
@@ -557,7 +557,7 @@ impl AudioFile {
             ffi::audio_file::at_audio_file_get_property(
                 self.raw.cast(),
                 property_id,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };
@@ -610,20 +610,20 @@ impl AudioFile {
                 ffi::audio_file::at_audio_file_read_packet_data(
                     self.raw.cast(),
                     use_cache,
-                    &mut io_num_bytes,
+                    &raw mut io_num_bytes,
                     packet_description_ptr,
                     starting_packet,
-                    &mut io_num_packets,
+                    &raw mut io_num_packets,
                     bytes.as_mut_ptr().cast(),
                 )
             } else {
                 ffi::audio_file::at_audio_file_read_packets(
                     self.raw.cast(),
                     use_cache,
-                    &mut io_num_bytes,
+                    &raw mut io_num_bytes,
                     packet_description_ptr,
                     starting_packet,
-                    &mut io_num_packets,
+                    &raw mut io_num_packets,
                     bytes.as_mut_ptr().cast(),
                 )
             }

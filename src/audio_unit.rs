@@ -28,7 +28,7 @@ impl AudioUnit {
                 component_type,
                 component_sub_type,
                 manufacturer,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioUnitNew", status)?;
@@ -118,8 +118,8 @@ impl AudioUnit {
                 property_id,
                 scope,
                 element,
-                &mut data_size,
-                &mut writable,
+                &raw mut data_size,
+                &raw mut writable,
             )
         };
         status_to_result("AudioUnitGetPropertyInfo", status)?;
@@ -230,7 +230,7 @@ impl AudioUnit {
                 parameter_id,
                 scope,
                 element,
-                &mut value,
+                &raw mut value,
             )
         };
         status_to_result("AudioUnitGetParameter", status)?;
@@ -415,7 +415,7 @@ impl AudioUnit {
                 property_id,
                 scope,
                 element,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };

@@ -17,7 +17,7 @@ impl SystemSound {
         let path = path_to_cstring(path.as_ref())?;
         let mut handle = std::ptr::null_mut();
         let status =
-            unsafe { ffi::audio_services::at_system_sound_create(path.as_ptr(), &mut handle) };
+            unsafe { ffi::audio_services::at_system_sound_create(path.as_ptr(), &raw mut handle) };
         status_to_result("AudioServicesCreateSystemSoundID", status)?;
         if handle.is_null() {
             return Err(AudioToolboxError::message(
@@ -47,7 +47,7 @@ impl SystemSound {
     pub fn is_ui_sound(&self) -> Result<bool> {
         let mut value = 0_u32;
         let status = unsafe {
-            ffi::audio_services::at_system_sound_get_is_ui_sound(self.handle, &mut value)
+            ffi::audio_services::at_system_sound_get_is_ui_sound(self.handle, &raw mut value)
         };
         status_to_result("AudioServicesGetProperty(is UI sound)", status)?;
         Ok(value != 0)
@@ -70,7 +70,7 @@ impl SystemSound {
         let status = unsafe {
             ffi::audio_services::at_system_sound_get_complete_playback_if_app_dies(
                 self.handle,
-                &mut value,
+                &raw mut value,
             )
         };
         status_to_result(

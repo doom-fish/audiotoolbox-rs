@@ -18,7 +18,7 @@ impl AudioFileComponent {
     pub fn new() -> Result<Self> {
         let mut handle = std::ptr::null_mut();
         let status =
-            unsafe { ffi::audio_file_component::at_audio_file_component_new_default(&mut handle) };
+            unsafe { ffi::audio_file_component::at_audio_file_component_new_default(&raw mut handle) };
         status_to_result("AudioFileComponentNew", status)?;
         Self::from_handle(handle, "AudioFileComponentNew")
     }
@@ -69,8 +69,8 @@ impl AudioFileComponent {
             ffi::audio_file_component::at_audio_file_component_get_property_info(
                 self.handle,
                 property_id,
-                &mut data_size,
-                &mut writable,
+                &raw mut data_size,
+                &raw mut writable,
             )
         };
         status_to_result("AudioFileComponentGetPropertyInfo", status)?;
@@ -95,7 +95,7 @@ impl AudioFileComponent {
             ffi::audio_file_component::at_audio_file_component_can_read(
                 self.handle,
                 file_type,
-                &mut can_read,
+                &raw mut can_read,
             )
         };
         status_to_result("AudioFileComponentGetGlobalInfo(can read)", status)?;
@@ -109,7 +109,7 @@ impl AudioFileComponent {
             ffi::audio_file_component::at_audio_file_component_copy_file_type_name(
                 self.handle,
                 file_type,
-                &mut status,
+                &raw mut status,
             )
         };
         status_to_result("AudioFileComponentGetGlobalInfo(file type name)", status)?;
@@ -127,7 +127,7 @@ impl AudioFileComponent {
             ffi::audio_file_component::at_audio_file_component_get_property(
                 self.handle,
                 property_id,
-                &mut size,
+                &raw mut size,
                 value.as_mut_ptr().cast(),
             )
         };

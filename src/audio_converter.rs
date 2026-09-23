@@ -72,7 +72,7 @@ impl AudioConverter {
             ffi::audio_converter::at_audio_converter_new(
                 source_format,
                 destination_format,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioConverterNew", status)?;
@@ -113,7 +113,7 @@ impl AudioConverter {
                 destination_format,
                 class_description_ptr,
                 class_count,
-                &mut handle,
+                &raw mut handle,
             )
         };
         status_to_result("AudioConverterNewSpecific", status)?;
@@ -463,7 +463,7 @@ fn get_property_typed<T: Copy>(
         ffi::audio_converter::at_audio_converter_get_property(
             raw.cast(),
             property_id,
-            &mut size,
+            &raw mut size,
             value.as_mut_ptr().cast(),
         )
     };
@@ -499,7 +499,7 @@ fn get_property_array<T: Copy>(
         ffi::audio_converter::at_audio_converter_get_property_info(
             raw.cast(),
             property_id,
-            &mut byte_size,
+            &raw mut byte_size,
             std::ptr::null_mut(),
         )
     };
@@ -521,7 +521,7 @@ fn get_property_array<T: Copy>(
         ffi::audio_converter::at_audio_converter_get_property(
             raw.cast(),
             property_id,
-            &mut byte_size,
+            &raw mut byte_size,
             bytes.as_mut_ptr().cast(),
         )
     };

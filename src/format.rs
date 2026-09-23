@@ -36,7 +36,7 @@ impl AudioFormat {
                 AUDIO_FORMAT_PROPERTY_FORMAT_INFO,
                 0,
                 std::ptr::null(),
-                &mut size,
+                &raw mut size,
                 std::ptr::from_mut(&mut description).cast::<c_void>(),
             )
         };
@@ -151,7 +151,7 @@ impl AudioFormat {
                 property_id,
                 specifier_size,
                 specifier_ptr,
-                &mut size,
+                &raw mut size,
             )
         };
         status_to_result("AudioFormatGetPropertyInfo", status)?;
@@ -197,7 +197,7 @@ impl AudioFormat {
                 AUDIO_FORMAT_PROPERTY_FIRST_PLAYABLE_FORMAT_FROM_LIST,
                 specifier_size,
                 items.as_ptr().cast(),
-                &mut size,
+                &raw mut size,
                 std::ptr::from_mut(&mut index).cast(),
             )
         };
@@ -218,7 +218,7 @@ impl AudioFormat {
                 u32::try_from(std::mem::size_of::<AudioBalanceFade>())
                     .expect("AudioBalanceFade fits in u32"),
                 std::ptr::from_ref(&balance_fade).cast(),
-                &mut size,
+                &raw mut size,
                 std::ptr::from_mut(&mut balance_fade).cast(),
             )
         };
@@ -246,7 +246,7 @@ fn get_u32_with_specifier<T>(
             property_id,
             u32::try_from(std::mem::size_of::<T>()).expect("specifier size fits in u32"),
             std::ptr::from_ref(specifier).cast(),
-            &mut size,
+            &raw mut size,
             value.as_mut_ptr().cast(),
         )
     };
@@ -268,7 +268,7 @@ fn get_array<T: Copy>(
             property_id,
             specifier_size,
             specifier,
-            &mut byte_size,
+            &raw mut byte_size,
         )
     };
     status_to_result(operation, status)?;
@@ -298,7 +298,7 @@ fn get_array<T: Copy>(
             property_id,
             specifier_size,
             specifier,
-            &mut byte_size,
+            &raw mut byte_size,
             buffer.as_mut_ptr().cast(),
         )
     };
