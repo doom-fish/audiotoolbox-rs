@@ -63,6 +63,7 @@ impl AudioUnit {
         self.raw
     }
 
+    #[cfg(feature = "async")]
     pub(crate) fn retained(&self) -> Result<Self> {
         let handle = unsafe { ffi::audio_unit::at_audio_unit_retain(self.handle) };
         if handle.is_null() {

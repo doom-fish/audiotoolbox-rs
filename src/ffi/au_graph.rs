@@ -17,6 +17,7 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AUGraphRelease`.
     pub fn at_au_graph_release(handle: *mut c_void);
+    #[cfg(feature = "async")]
     pub fn at_au_graph_adopt_context(
         handle: *mut c_void,
         context: *mut c_void,
@@ -33,6 +34,7 @@ unsafe extern "C" {
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AUGraphRetain`.
+    #[cfg(feature = "async")]
     pub fn at_au_graph_retain(handle: *mut c_void) -> *mut c_void;
     /// Raw binding for `AUGraphOpen`.
     ///

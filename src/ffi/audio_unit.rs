@@ -28,6 +28,7 @@ unsafe extern "C" {
     /// # Safety
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioUnitRetain`.
+    #[cfg(feature = "async")]
     pub fn at_audio_unit_retain(handle: *mut c_void) -> *mut c_void;
     /// Raw binding for `AudioUnitRelease`.
     ///
@@ -35,6 +36,7 @@ unsafe extern "C" {
     ///
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioUnitRelease`.
     pub fn at_audio_unit_release(handle: *mut c_void);
+    #[cfg(feature = "async")]
     pub fn at_audio_unit_adopt_context(
         handle: *mut c_void,
         context: *mut c_void,

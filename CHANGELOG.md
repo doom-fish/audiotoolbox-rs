@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Building with default features warned about six unused items (`AUGraph` and
+  `AudioUnit` retain helpers and their bridge declarations) that only the
+  `async` feature uses; they are now compiled only with `async`.
 - Chunked conversion no longer ends the stream on every call, which flushed
   encoders and dropped all later input.
 - Setting `frameLength` above `frameCapacity`, or asking a node for a bus it

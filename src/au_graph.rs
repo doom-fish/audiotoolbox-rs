@@ -126,6 +126,7 @@ impl AUGraph {
         Ok(cpu_load)
     }
 
+    #[cfg(feature = "async")]
     pub(crate) fn retained(&self) -> Result<Self> {
         let handle = unsafe { ffi::au_graph::at_au_graph_retain(self.handle) };
         Self::from_handle(handle, "AUGraphRetain")
