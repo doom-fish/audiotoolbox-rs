@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verified, and say what their numbers measure.
 - The 0.4.x hardening (sound batch reads in `AudioFormat`, ABI layout
   assertions) that had not been released is part of this release.
+- `build.rs` no longer adds the toolchain's Swift 5.5 back-deployment
+  directory (`usr/lib/swift-5.5/macosx`) to the link search path or rpath.
+  Its old `libswift_Concurrency.dylib` could shadow the SDK's
+  `libswift_Concurrency.tbd` for the whole binary and break linking next to
+  Swift bridges that use newer concurrency APIs.
 
 ### Changed
 
