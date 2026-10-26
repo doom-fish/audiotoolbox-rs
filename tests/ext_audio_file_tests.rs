@@ -22,7 +22,7 @@ fn ext_audio_file_reads_interleaved_pcm() -> Result<()> {
     let frames = file.read_interleaved(&mut buffer, 512)?;
 
     assert!(frames > 0);
-    assert!(!buffer.as_bytes().is_empty());
+    assert_ne!(buffer.as_bytes(), []);
     Ok(())
 }
 

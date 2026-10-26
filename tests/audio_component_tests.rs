@@ -21,7 +21,7 @@ fn audio_component_finds_converter_unit() -> Result<()> {
     let instance = component.new_instance()?;
     let parent = instance.component()?;
 
-    assert!(!name.is_empty());
+    assert_ne!(name, "");
     assert_eq!(
         component_description.component_type,
         AUDIO_COMPONENT_TYPE_FORMAT_CONVERTER

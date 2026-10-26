@@ -767,7 +767,7 @@ mod tests {
         let sink = Arc::clone(&seen);
         let handler: InputHandler = Mutex::new(Box::new(move |view| {
             sink.lock().unwrap().extend_from_slice(view.data);
-            assert!(view.packet_descriptions.is_empty());
+            assert_eq!(view.packet_descriptions, []);
             assert!(view.start_time.is_none());
             true
         }));

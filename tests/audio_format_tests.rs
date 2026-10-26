@@ -17,7 +17,7 @@ fn audio_format_queries_work() -> Result<()> {
             )
         }? > 0
     );
-    assert!(!AudioFormat::encode_format_ids()?.is_empty());
+    assert_ne!(AudioFormat::encode_format_ids()?, [] as [u32; 0]);
     assert!(AudioFormat::decode_format_ids()?.contains(&AUDIO_FORMAT_LINEAR_PCM));
     assert!(!AudioFormat::format_is_vbr(&format_info)?);
     assert_eq!(fourcc_to_string(AUDIO_FILE_AIFF_TYPE), "AIFF");

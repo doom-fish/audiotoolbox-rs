@@ -18,7 +18,7 @@ fn audio_file_reads_glass_properties() -> Result<()> {
     assert_eq!(format.mFormatID, AUDIO_FORMAT_LINEAR_PCM);
     assert!(duration > 0.0);
     assert!(packet_count > 0);
-    assert!(!packet_data.data.is_empty());
+    assert_ne!(packet_data.data, [] as [u8; 0]);
     assert!(byte_count > 0);
     assert!(data_offset >= 0);
     assert_eq!(header_bytes.len(), 32);

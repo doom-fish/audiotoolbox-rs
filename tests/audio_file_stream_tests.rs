@@ -34,7 +34,10 @@ fn chunked_parse_returns_every_audio_byte_in_order() -> Result<()> {
     let mut packet_count = 0_u64;
     for chunk in bytes.chunks(4093) {
         let packets = stream.parse_bytes(chunk, 0)?;
-        assert!(packets.packet_descriptions.is_empty());
+        assert_eq!(
+            packets.packet_descriptions,
+            [] as [audiotoolbox::AudioStreamPacketDescription; 0]
+        );
         packet_count += u64::from(packets.packet_count);
         audio.extend_from_slice(&packets.data);
     }

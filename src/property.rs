@@ -194,6 +194,6 @@ mod tests {
     fn read_property_array_skips_the_call_for_an_empty_payload() {
         let values = read_property_array::<u32>("test", 0, |_, _| panic!("must not be called"))
             .expect("empty payload");
-        assert!(values.is_empty());
+        assert_eq!(values, [] as [u32; 0]);
     }
 }
