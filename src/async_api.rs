@@ -265,7 +265,7 @@ impl AudioUnitPropertyStream {
         })
     }
 
-    pub const fn next(&self) -> EventNext<'_, AudioUnitPropertyEvent> {
+    pub const fn next(&mut self) -> EventNext<'_, AudioUnitPropertyEvent> {
         self.inner.pop_async()
     }
 
@@ -318,7 +318,7 @@ impl AudioUnitRenderNotifyStream {
         })
     }
 
-    pub const fn next(&self) -> EventNext<'_, RenderNotifyEvent> {
+    pub const fn next(&mut self) -> EventNext<'_, RenderNotifyEvent> {
         self.inner.pop_async()
     }
 
@@ -367,7 +367,7 @@ impl AUGraphRenderNotifyStream {
         })
     }
 
-    pub const fn next(&self) -> EventNext<'_, RenderNotifyEvent> {
+    pub const fn next(&mut self) -> EventNext<'_, RenderNotifyEvent> {
         self.inner.pop_async()
     }
 

@@ -998,9 +998,43 @@ pub struct AudioUnitParameterEvent {
     /// Wraps `AudioUnitParameter`.
     pub parameter: AudioUnitParameterId,
     /// Wraps `AudioUnitParameter`.
-    pub eventType: AUParameterEventType,
+    eventType: AUParameterEventType,
     /// Wraps `AudioUnitParameter`.
-    pub eventValues: AudioUnitParameterEventValues,
+    eventValues: AudioUnitParameterEventValues,
+}
+
+impl AudioUnitParameterEvent {
+    #[must_use]
+    pub const fn immediate(
+        scope: AudioUnitScope,
+        element: AudioUnitElement,
+        parameter: AudioUnitParameterId,
+        value: AudioUnitParameterEventImmediate,
+    ) -> Self {
+        Self {
+            scope,
+            element,
+            parameter,
+            eventType: 1,
+            eventValues: AudioUnitParameterEventValues { immediate: value },
+        }
+    }
+
+    #[must_use]
+    pub const fn ramp(
+        scope: AudioUnitScope,
+        element: AudioUnitElement,
+        parameter: AudioUnitParameterId,
+        value: AudioUnitParameterEventRamp,
+    ) -> Self {
+        Self {
+            scope,
+            element,
+            parameter,
+            eventType: 2,
+            eventValues: AudioUnitParameterEventValues { ramp: value },
+        }
+    }
 }
 
 impl fmt::Debug for AudioUnitParameterEvent {

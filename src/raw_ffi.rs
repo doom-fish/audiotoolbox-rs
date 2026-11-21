@@ -893,8 +893,8 @@ unsafe extern "C" {
         in_id: AudioUnitPropertyId,
         in_scope: AudioUnitScope,
         in_element: AudioUnitElement,
-        io_data_size: *mut u32,
         out_data: *mut c_void,
+        io_data_size: *mut u32,
     ) -> OSStatus;
     /// Raw binding for `AudioToolboxAudiounitsetproperty`.
     ///
@@ -906,8 +906,8 @@ unsafe extern "C" {
         in_id: AudioUnitPropertyId,
         in_scope: AudioUnitScope,
         in_element: AudioUnitElement,
-        in_data_size: u32,
         in_data: *const c_void,
+        in_data_size: u32,
     ) -> OSStatus;
     /// Raw binding for `AudioToolboxAudiounitaddpropertylistener`.
     ///
@@ -983,8 +983,8 @@ unsafe extern "C" {
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioToolboxAudiounitscheduleparameters`.
     pub fn AudioUnitScheduleParameters(
         in_unit: AudioUnitRef,
-        in_num_param_events: u32,
         in_param_events: *const AudioUnitParameterEvent,
+        in_num_param_events: u32,
     ) -> OSStatus;
     /// Raw binding for `AudioToolboxAudiounitrender`.
     ///

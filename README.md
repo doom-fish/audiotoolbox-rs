@@ -63,6 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Safety model
 
+- Use `AudioUnitParameterEvent::immediate` or `AudioUnitParameterEvent::ramp` to construct a scheduled event. Each constructor sets the native tag for its payload.
 - Typed property getters (`AudioUnit::get_property_typed`, `AudioFile::get_property_typed` and `get_property_array`, `MusicTrack::get_property_typed`) accept only types that implement the `AudioProperty` marker trait: plain-old-data types for which every bit pattern is valid. They fail unless the framework returns exactly `size_of::<T>()` bytes. `AudioProperty` is an `unsafe` trait; implement it for your own `#[repr(C)]` types only if they meet that rule.
 - Calls whose meaning depends on a property id or on caller-owned pointers are `unsafe`: the `set_property_typed` methods, `AudioFile::set_property_bytes` and `global_info_*`, `AudioFormat::property_info`, `AUGraph::set_node_input_callback`, and the raw `add_render_notify` / `add_property_listener` registrations.
 - `AudioUnit::render` and `AudioConverter::convert_complex_buffer` take `OwnedAudioBufferList` values; the buffer count, channel counts and capacities are checked against the stream formats before the call.

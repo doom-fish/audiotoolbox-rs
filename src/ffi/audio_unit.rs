@@ -185,8 +185,8 @@ unsafe extern "C" {
     /// The caller must uphold the pointer, lifetime, and callback requirements of `AudioUnitScheduleParameters`.
     pub fn at_audio_unit_schedule_parameters(
         raw_unit: *mut c_void,
-        event_count: u32,
         events: *const AudioUnitParameterEvent,
+        event_count: u32,
     ) -> OSStatus;
     #[link_name = "AudioUnitRender"]
     /// Raw binding for `AudioUnitRender`.

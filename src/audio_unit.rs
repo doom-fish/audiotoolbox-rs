@@ -383,8 +383,8 @@ impl AudioUnit {
         let status = unsafe {
             ffi::audio_unit::at_audio_unit_schedule_parameters(
                 self.raw.cast(),
-                event_count,
                 events.as_ptr(),
+                event_count,
             )
         };
         status_to_result("AudioUnitScheduleParameters", status)
