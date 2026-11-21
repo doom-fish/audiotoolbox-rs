@@ -30,14 +30,14 @@ The original raw C surface is still available behind the `raw-ffi` Cargo feature
 
 ```toml
 [dependencies]
-audiotoolbox = "0.5.0"
+audiotoolbox = "0.6.0"
 ```
 
 To reach the legacy raw C bindings as well:
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.5.0", features = ["raw-ffi"] }
+audiotoolbox = { version = "0.6.0", features = ["raw-ffi"] }
 ```
 
 ## Quick start
@@ -80,11 +80,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Async callback streams
 
-Enable the `async` feature for executor-agnostic wrappers over property listeners and render-notify callbacks. Both hand events from the callback to the stream through a lock-free ring that drops the oldest event when it is full, and the callback path takes no locks and allocates nothing. The callback context stays alive until the audio unit or graph is disposed, so a callback that is already running when a stream is dropped never touches freed memory. `try_next` never involves the executor; awaiting `next()` registers a waker, and the render thread then runs your executor's wake code. Synchronous pull-render callbacks remain manual.
+Enable the `async` feature for property listeners and render-notify callbacks. A full ring normally drops the oldest event.
+With `doom-fish-utils` 0.5.0, the producer can wait for a slot that a reader holds. On `main`, the ring drops the incoming event instead.
+
+The callback context stays alive until the audio unit or graph disposes of it. `try_next` does not use the executor.
+`next()` registers a waker that the render thread calls. Synchronous pull-render callbacks remain manual.
 
 ```toml
 [dependencies]
-audiotoolbox = { version = "0.5.0", features = ["async"] }
+audiotoolbox = { version = "0.6.0", features = ["async"] }
 ```
 
 ```rust,no_run

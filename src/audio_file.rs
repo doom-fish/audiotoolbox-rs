@@ -580,9 +580,13 @@ impl AudioFile {
             "AudioFileReadPackets"
         };
         let format = self.data_format()?;
-        let max_packet_size = self
-            .maximum_packet_size()
-            .unwrap_or_else(|_| format.mBytesPerPacket.max(1));
+        let max_packet_size = self.maximum_packet_size()?;
+        if max_packet_size == 0 {
+            return Err(AudioToolboxError::message(
+                operation,
+                "the file did not supply a non-zero maximum packet size",
+            ));
+        }
         let mut io_num_bytes = packet_buffer_size(operation, max_packet_size, packet_count)?;
         let mut bytes = vec![0_u8; io_num_bytes as usize];
         let mut packet_descriptions =

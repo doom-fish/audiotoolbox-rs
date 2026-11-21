@@ -430,11 +430,23 @@ impl AudioQueue {
                 "framework returned a null AudioQueueBufferRef",
             ));
         }
-        Ok(AudioQueueBufferHandle {
+        let handle = AudioQueueBufferHandle {
             raw,
             queue: self.raw,
             _queue: PhantomData,
-        })
+        };
+        let capacity = handle.audio_data_bytes_capacity() as usize;
+        if capacity != 0 {
+            let data = unsafe { (*raw).mAudioData.cast::<u8>() };
+            if data.is_null() {
+                return Err(AudioToolboxError::message(
+                    operation,
+                    "the queue buffer has no audio storage",
+                ));
+            }
+            unsafe { data.write_bytes(0, capacity) };
+        }
+        Ok(handle)
     }
 
     #[allow(clippy::missing_errors_doc)]
