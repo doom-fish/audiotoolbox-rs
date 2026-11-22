@@ -2,7 +2,7 @@
 
 Safe Rust bindings for Apple’s `AudioToolbox.framework` on macOS via a Swift bridge.
 
-Requires macOS 10.15 or later.
+The crate requires macOS 12 or later. Set `MACOSX_DEPLOYMENT_TARGET` to `12.0` or later when you build a consumer.
 
 ## Covered areas
 
