@@ -17,7 +17,6 @@ fn main() {
     println!("cargo:rustc-link-lib=framework=AVFAudio");
     println!("cargo:rustc-link-lib=framework=CoreAudio");
     println!("cargo:rustc-link-lib=framework=CoreFoundation");
-    println!("cargo:rustc-link-arg=-mmacosx-version-min=13.0");
 
     let swift_dir = "swift-bridge";
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set by Cargo");
